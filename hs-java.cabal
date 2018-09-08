@@ -46,7 +46,7 @@ library
                   mtl, directory, filepath, utf8-string, array,
                   bytestring, data-binary-ieee754, binary-state,
                   control-monad-exception, data-default >= 0.5.0,
-                  MissingH, LibZip, Glob, parsec >= 3 && <4
+                  MissingH, zip, Glob, parsec >= 3 && <4, exceptions
 
   ghc-options: -fwarn-unused-imports
 
