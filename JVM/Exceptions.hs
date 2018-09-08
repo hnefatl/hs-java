@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveDataTypeable, ExistentialQuantification #-}
 module JVM.Exceptions where
 
-import Control.Monad.Exception
+import Control.Exception
 import qualified Data.ByteString.Lazy as B
 import Data.Typeable (Typeable)
+import Data.Functor.Identity (runIdentity)
+import Control.Monad.Except (runExceptT, Except)
 
 import JVM.ClassFile
 
@@ -45,8 +47,8 @@ instance Show ENotFound where
 
 instance Exception ENotFound
 
-force :: String -> EM AnyException a -> a
+force :: Show e => String -> Except e l -> l
 force s x =
-  case tryEM x of
+  case runIdentity $ runExceptT x of
     Right result -> result
     Left  exc    -> error $ "Exception at " ++ s ++ ": " ++ show exc

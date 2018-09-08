@@ -10,9 +10,9 @@
 module JVM.Builder.Monad
   (GState (..),
    emptyGState,
-   GeneratorMonad (..),
-   Generator (..),
-   Generate (..), GenerateIO (..),
+   -- GeneratorMonad (..),
+   -- Generator (..),
+   Generate (..), -- GenerateIO (..),
    addToPool,
    i0, i1, i8,
    newMethod,
@@ -25,13 +25,14 @@ module JVM.Builder.Monad
 
 import Prelude hiding (catch)
 import Control.Monad.State as St
-import Control.Monad.Exception
-import Control.Monad.Exception.Base
 import Data.Word
 import Data.Binary
+import Data.Functor.Identity
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.ByteString.Lazy as B
+import Control.Exception.Safe.Checked
+import Control.Monad.Except
 
 import JVM.Common
 import JVM.ClassFile
@@ -64,85 +65,40 @@ emptyGState = GState {
   locals = 0,
   classPath = []}
 
-class Monad m => GeneratorMonad m where
-  getGState :: m GState
-  putGState :: GState -> m ()
-
-instance (Monad m, MonadState GState m) => GeneratorMonad m where
-  getGState = St.get
-  putGState = St.put
-
-modifyGState :: GeneratorMonad m => (GState -> GState) -> m ()
+modifyGState :: (Monad m, MonadState GState m) => (GState -> GState) -> m ()
 modifyGState fn = do
-  st <- getGState
-  putGState $ fn st
+  st <- St.get
+  St.put $ fn st
 
-getsGState :: GeneratorMonad m => (GState -> a) -> m a
+getsGState :: (Monad m, MonadState GState m) => (GState -> a) -> m a
 getsGState fn = do
-  st <- getGState
+  st <- St.get
   return $ fn st
 
-class (Monad (g e), GeneratorMonad (g e)) => Generator e g where
-  throwG :: (Exception x, Throws x e) => x -> g e a
-
 -- | Generate monad
-newtype Generate e a = Generate {
-  runGenerate :: EMT e (State GState) a }
-  deriving (Functor, Applicative, Monad, MonadState GState)
+newtype Generate e m a = Generate {
+  runGenerate :: ExceptT e (StateT GState m) a }
+  deriving (Functor, Applicative, Monad, MonadState GState, MonadThrow, MonadCatch, MonadIO)
 
--- instance GeneratorMonad (Generate e) where
---   getGState = Generate $ St.get
---   putGState = Generate . St.put
-
-instance MonadState st (EMT e (StateT st IO)) where
-  get = lift St.get
-  put x = lift (St.put x)
-
-instance MonadState st (EMT e (State st)) where
-  get = lift St.get
-  put x = lift (St.put x)
-
--- | IO version of Generate monad
-newtype GenerateIO e a = GenerateIO {
-  runGenerateIO :: EMT e (StateT GState IO) a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadState GState)
-
--- instance GeneratorMonad (GenerateIO e) where
---   getGState = GenerateIO $ St.get
---   putGState = GenerateIO . St.put
-
-instance MonadIO (EMT e (StateT GState IO)) where
-  liftIO action = lift $ liftIO action
-
-instance Generator e GenerateIO where
-  throwG e = GenerateIO (throw e)
-
-instance (MonadState GState (EMT e (State GState))) => Generator e Generate where
-  throwG e = Generate (throw e)
-
-execGenerateIO :: [Tree CPEntry]
-               -> GenerateIO (Caught SomeException NoExceptions) a
-               -> IO GState
-execGenerateIO cp (GenerateIO emt) = do
-    let caught = emt `catch` (\(e :: SomeException) -> fail $ show e)
-    execStateT (runEMT caught) (emptyGState {classPath = cp})
+execGenerateIO :: Monad m => [Tree CPEntry] -> Generate e m a -> m GState
+execGenerateIO cp (Generate emt) = do
+    execStateT (runExceptT emt) (emptyGState {classPath = cp})
 
 execGenerate :: [Tree CPEntry]
-             -> Generate (Caught SomeException NoExceptions) a
-             -> GState
-execGenerate cp (Generate emt) = do
-    let caught = emt `catch` (\(e :: SomeException) -> fail $ show e)
-    execState (runEMT caught) (emptyGState {classPath = cp})
+                -> Generate e Identity a
+                -> GState
+execGenerate cp g =
+    runIdentity $ execGenerateIO cp g
 
 -- | Update ClassPath
-withClassPath :: ClassPath () -> GenerateIO e ()
+withClassPath :: (MonadIO m, MonadState GState m) => ClassPath () -> m ()
 withClassPath cp = do
   res <- liftIO $ execClassPath cp
-  st <- getGState
-  putGState $ st {classPath = res}
+  st <- St.get
+  St.put $ st {classPath = res}
 
 -- | Add a constant to pool
-addItem :: (Generator e g) => Constant Direct -> g e Word16
+addItem :: (Monad m, MonadState GState m) => Constant Direct -> m Word16
 addItem c = do
   pool <- getsGState currentPool
   case lookupPool c pool of
@@ -163,7 +119,7 @@ lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
 lookupPool c pool =
   fromIntegral `fmap` mapFindIndex (== c) pool
 
-addNT :: (Generator e g, HasSignature a) => NameType a -> g e Word16
+addNT :: (Monad m, MonadState GState m, HasSignature a) => NameType a -> m Word16
 addNT (NameType name sig) = do
   let bsig = encode sig
   x <- addItem (CNameType name bsig)
@@ -171,13 +127,13 @@ addNT (NameType name sig) = do
   addItem (CUTF8 bsig)
   return x
 
-addSig :: (Generator e g) => MethodSignature -> g e Word16
+addSig :: (Monad m, MonadState GState m) => MethodSignature -> m Word16
 addSig c@(MethodSignature args ret) = do
   let bsig = encode c
   addItem (CUTF8 bsig)
 
 -- | Add a constant into pool
-addToPool :: (Generator e g) => Constant Direct -> g e Word16
+addToPool :: (Monad m, MonadState GState m) => Constant Direct -> m Word16
 addToPool c@(CClass str) = do
   addItem (CUTF8 str)
   addItem c
@@ -202,60 +158,60 @@ addToPool c@(CNameType name sig) = do
   addItem c
 addToPool c = addItem c
 
-putInstruction :: (Generator e g) => Instruction -> g e ()
+putInstruction :: (Monad m, MonadState GState m) => Instruction -> m ()
 putInstruction instr = do
   modifyGState $ \st -> st {generated = generated st ++ [instr]}
 
 -- | Generate one (zero-arguments) instruction
-i0 :: (Generator e g) => Instruction -> g e ()
+i0 :: (Monad m, MonadState GState m) => Instruction -> m ()
 i0 = putInstruction
 
 -- | Generate one one-argument instruction
-i1 :: (Generator e g) => (Word16 -> Instruction) -> Constant Direct -> g e ()
+i1 :: (Monad m, MonadState GState m) => (Word16 -> Instruction) -> Constant Direct -> m ()
 i1 fn c = do
   ix <- addToPool c
   i0 (fn ix)
 
 -- | Generate one one-argument instruction
-i8 :: (Generator e g) => (Word8 -> Instruction) -> Constant Direct -> g e ()
+i8 :: (Monad m, MonadState GState m) => (Word8 -> Instruction) -> Constant Direct -> m ()
 i8 fn c = do
   ix <- addToPool c
   i0 (fn $ fromIntegral ix)
 
 -- | Set maximum stack size for current method
-setStackSize :: (Generator e g) => Word16 -> g e ()
+setStackSize :: (Monad m, MonadState GState m) => Word16 -> m ()
 setStackSize n = do
   modifyGState $ \st -> st {stackSize = n}
 
 -- | Set maximum number of local variables for current method
-setMaxLocals :: (Generator e g) => Word16 -> g e ()
+setMaxLocals :: (Monad m, MonadState GState m) => Word16 -> m ()
 setMaxLocals n = do
   modifyGState $ \st -> st {locals = n}
 
 -- | Start generating new method
-startMethod :: (Generator e g) => [AccessFlag] -> B.ByteString -> MethodSignature -> g e ()
+startMethod :: (Monad m, MonadState GState m) => [AccessFlag] -> B.ByteString -> MethodSignature -> m ()
 startMethod flags name sig = do
   addToPool (CString name)
   addSig sig
   setStackSize 4096
   setMaxLocals 100
-  st <- getGState
+  st <- St.get
   let method = Method {
     methodAccessFlags = S.fromList flags,
     methodName = name,
     methodSignature = sig,
     methodAttributesCount = 0,
     methodAttributes = AR M.empty }
-  putGState $ st {generated = [],
+  St.put $ st {generated = [],
                currentMethod = Just method }
 
 -- | End of method generation
-endMethod :: (Generator e g, Throws UnexpectedEndMethod e) => g e ()
+endMethod :: (Monad m, MonadState GState m, MonadThrow m, Throws UnexpectedEndMethod) => m ()
 endMethod = do
   m <- getsGState currentMethod
   code <- getsGState genCode
   case m of
-    Nothing -> throwG UnexpectedEndMethod
+    Nothing -> throw UnexpectedEndMethod
     Just method -> do
       let method' = method {methodAttributes = AR $ M.fromList [("Code", encodeMethod code)],
                             methodAttributesCount = 1}
@@ -265,13 +221,13 @@ endMethod = do
                    doneMethods = doneMethods st ++ [method']}
 
 -- | Generate new method
-newMethod :: (Generator e g, Throws UnexpectedEndMethod e)
+newMethod :: (Monad m, MonadState GState m, MonadThrow m, Throws UnexpectedEndMethod)
           => [AccessFlag]        -- ^ Access flags for method (public, static etc)
           -> B.ByteString        -- ^ Method name
           -> [ArgumentSignature] -- ^ Signatures of method arguments
           -> ReturnSignature     -- ^ Method return signature
-          -> g e ()                -- ^ Generator for method code
-          -> g e (NameType (Method Direct))
+          -> m ()                -- ^ Generator for method code
+          -> m (NameType (Method Direct))
 newMethod flags name args ret gen = do
   let sig = MethodSignature args ret
   startMethod flags name sig
@@ -280,41 +236,41 @@ newMethod flags name args ret gen = do
   return (NameType name sig)
 
 -- | Get a class from current ClassPath
-getClass :: (Throws ENotLoaded e, Throws ENotFound e)
-         => String -> GenerateIO e (Class Direct)
+getClass :: (Throws ENotLoaded, Throws ENotFound, MonadThrow m,MonadState GState m, MonadIO m)
+         => String -> m (Class Direct)
 getClass name = do
-  cp <- getsGState classPath
+  cp <- classPath <$> St.get
   res <- liftIO $ getEntry cp name
   case res of
-    Just (NotLoaded p) -> throwG (ClassFileNotLoaded p)
+    Just (NotLoaded p) -> throw (ClassFileNotLoaded p)
     Just (Loaded _ c) -> return c
-    Just (NotLoadedJAR p c) -> throwG (JARNotLoaded p c)
+    Just (NotLoadedJAR p c) -> throw (JARNotLoaded p c)
     Just (LoadedJAR _ c) -> return c
-    Nothing -> throwG (ClassNotFound name)
+    Nothing -> throw (ClassNotFound name)
 
 -- | Get class field signature from current ClassPath
-getClassField :: (Throws ENotFound e, Throws ENotLoaded e)
-              => String -> B.ByteString -> GenerateIO e (NameType (Field Direct))
+getClassField :: (Throws ENotFound, Throws ENotLoaded, MonadThrow m, MonadState GState m, MonadIO m)
+              => String -> B.ByteString -> m (NameType (Field Direct))
 getClassField clsName fldName = do
   cls <- getClass clsName
   case lookupField fldName cls of
     Just fld -> return (fieldNameType fld)
-    Nothing  -> throwG (FieldNotFound clsName fldName)
+    Nothing  -> throw (FieldNotFound clsName fldName)
 
 -- | Get class method signature from current ClassPath
-getClassMethod :: (Throws ENotFound e, Throws ENotLoaded e)
-               => String -> B.ByteString -> GenerateIO e (NameType (Method Direct))
+getClassMethod :: (Throws ENotFound, Throws ENotLoaded, MonadThrow m, MonadState GState m, MonadIO m)
+               => String -> B.ByteString -> m (NameType (Method Direct))
 getClassMethod clsName mName = do
   cls <- getClass clsName
   case lookupMethod mName cls of
     Just m -> return (methodNameType m)
-    Nothing  -> throwG (MethodNotFound clsName mName)
+    Nothing  -> throw (MethodNotFound clsName mName)
 
 -- | Access the generated bytecode length
 encodedCodeLength :: GState -> Word32
 encodedCodeLength st = fromIntegral . B.length . encodeInstructions $ generated st
 
-generateCodeLength :: Generate (Caught SomeException NoExceptions) a -> Word32
+-- generateCodeLength :: Generate (Caught SomeException NoExceptions) a -> Word32
 generateCodeLength = encodedCodeLength . execGenerate []
 
 -- | Convert Generator state to method Code.
@@ -330,17 +286,18 @@ genCode st = Code {
     codeAttributes = AP [] }
 
 -- | Start class generation.
-initClass :: (Generator e g) => B.ByteString -> g e Word16
+initClass :: (Monad m, MonadState GState m) => B.ByteString -> m Word16
 initClass name = do
   addToPool (CClass "java/lang/Object")
   addToPool (CClass name)
   addToPool (CString "Code")
 
 -- | Generate a class
-generateIO :: [Tree CPEntry]
-           -> B.ByteString
-           -> GenerateIO (Caught SomeException NoExceptions) ()
-           -> IO (Class Direct)
+generateIO ::Monad m
+              => [Tree CPEntry]
+              -> B.ByteString
+              -> Generate e m a
+              -> m (Class Direct)
 generateIO cp name gen = do
   let generator = do
         initClass name
@@ -359,21 +316,8 @@ generateIO cp name gen = do
 
 -- | Generate a class
 generate :: [Tree CPEntry]
-         -> B.ByteString
-         -> Generate (Caught SomeException NoExceptions) ()
-         -> Class Direct
+            -> B.ByteString
+            -> Generate e Identity a
+            -> Class Direct
 generate cp name gen =
-  let generator = do
-        initClass name
-        gen
-      res = execGenerate cp generator
-      code = genCode res
-      d = defaultClass :: Class Direct
-  in  d {
-        constsPoolSize = fromIntegral $ M.size (currentPool res),
-        constsPool = currentPool res,
-        accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
-        thisClass = name,
-        superClass = "java/lang/Object",
-        classMethodsCount = fromIntegral $ length (doneMethods res),
-        classMethods = doneMethods res }
+  runIdentity $ generateIO cp name gen

@@ -45,8 +45,9 @@ library
   Build-Depends:  base >= 3 && <= 5, containers, binary,
                   mtl, directory, filepath, utf8-string, array,
                   bytestring, data-binary-ieee754, binary-state,
-                  control-monad-exception, data-default >= 0.5.0,
-                  MissingH, zip, Glob, parsec >= 3 && <4, exceptions
+                  exceptions, safe-exceptions-checked,
+                  data-default >= 0.5.0,
+                  MissingH, Glob, parsec >= 3 && <4, zip
 
   ghc-options: -fwarn-unused-imports
 

@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts, Rank2Types #-}
 
-import Control.Monad.Exception
+-- import Control.Exception
 import qualified Data.ByteString.Lazy as B
 
 import JVM.ClassFile
@@ -13,7 +13,15 @@ import Java.ClassPath
 import qualified Java.Lang
 import qualified Java.IO
 
-test :: (Throws ENotFound e, Throws ENotLoaded e, Throws UnexpectedEndMethod e) => GenerateIO e ()
+import Control.Exception.Safe.Checked
+import Control.Monad.State
+
+test ::(Throws ENotFound,
+        Throws ENotLoaded,
+        Throws UnexpectedEndMethod,
+        MonadThrow m,
+        MonadIO m,
+        MonadState GState m) => m ()
 test = do
   withClassPath $ do
       -- Add current directory (with Hello.class) to ClassPath
@@ -52,7 +60,7 @@ test = do
       pop
       i0 RETURN
 
-  -- Main class method. 
+  -- Main class method.
   newMethod [ACC_PUBLIC, ACC_STATIC] "main" [arrayOf Java.Lang.stringClass] ReturnsVoid $ do
       setStackSize 1
 
@@ -63,8 +71,19 @@ test = do
 
   return ()
 
+raiseErr :: Show e => e -> a
+raiseErr e = error (show e)
+
+catchENotFound :: MonadCatch m => (Throws ENotFound => m a) -> m a
+catchENotFound ma = catch ma (raiseErr :: ENotFound -> a)
+
+catchENotLoaded :: MonadCatch m => (Throws ENotLoaded => m a) -> m a
+catchENotLoaded ma = catch ma (raiseErr :: ENotLoaded -> a)
+
+catchUnexpectedEndMethod :: MonadCatch m => (Throws UnexpectedEndMethod => m a) -> m a
+catchUnexpectedEndMethod ma = catch ma (raiseErr :: UnexpectedEndMethod -> a)
+
 main :: IO ()
 main = do
-  testClass <- generateIO [] "Test" test
+  testClass <- generateIO [] "Test" $ catchENotFound $ catchENotLoaded $ catchUnexpectedEndMethod test
   B.writeFile "Test.class" (encodeClass testClass)
-

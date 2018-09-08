@@ -11,7 +11,7 @@ module JVM.Converter
   )
   where
 
-import Control.Monad.Exception
+import Control.Exception (throw)
 import Data.List
 import Data.Word
 import Data.Bits
@@ -25,6 +25,7 @@ import qualified Data.Map as M
 import JVM.ClassFile
 import JVM.Common
 import JVM.Exceptions
+import Control.Monad.Except
 
 -- | Parse .class file data
 parseClass :: B.ByteString -> Class Direct
@@ -103,7 +104,7 @@ poolDirect2File pool = result
     cpInfo (CUnicode s) = CUnicode s
 
 -- | Find index of given string in the list of constants
-poolIndex :: (Throws NoItemInPool e) => Pool File -> B.ByteString -> EM e Word16
+poolIndex :: Pool File -> B.ByteString -> Except NoItemInPool Word16
 poolIndex list name = case mapFindIndex test list of
                         Nothing -> throw (NoItemInPool name)
                         Just i ->  return $ fromIntegral i
@@ -113,7 +114,7 @@ poolIndex list name = case mapFindIndex test list of
     test _                                  = False
 
 -- | Find index of given string in the list of constants
-poolClassIndex :: (Throws NoItemInPool e) => Pool File -> B.ByteString -> EM e Word16
+poolClassIndex :: Pool File -> B.ByteString -> Except NoItemInPool Word16
 poolClassIndex list name = case mapFindIndex checkString list of
                         Nothing -> throw (NoItemInPool name)
                         Just i ->  case mapFindIndex (checkClass $ fromIntegral i) list of

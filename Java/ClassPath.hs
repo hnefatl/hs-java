@@ -26,7 +26,11 @@ glob dir patterns = do
 
 -- | Append one file to ClassPath forest
 appendPath :: FilePath -> [Tree CPEntry] -> [Tree CPEntry]
-appendPath path forest = merge $ forest ++ (mapF NotLoaded $ buildTree [path])
+appendPath path forest =
+  merge $ forest ++ (mapF NotLoaded $ buildTree [map repl path])
+  where
+    repl '\\' = '/'
+    repl x = x
 
 -- | Add one directory to current ClassPath
 addDirectory :: FilePath -> ClassPath ()
