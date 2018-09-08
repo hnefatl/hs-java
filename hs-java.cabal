@@ -16,11 +16,13 @@ Description:    This package declares data types for Java .class files format an
                 instance of GeneratorMonad class, not only MonadState GState.
 Bug-reports: http://redmine.iportnov.ru/projects/hs-java/
 
-Extra-source-files: dump-class.hs
-                    rebuild-class.hs
-                    TestGen.hs
+-- Extra-source-files: dump-class.hs
+--                     rebuild-class.hs
+--                     TestGen.hs
 
 library
+  Hs-Source-Dirs:  src
+  
   Exposed-Modules: JVM.Common
                    JVM.ClassFile
                    JVM.Assembler
@@ -50,6 +52,14 @@ library
                   MissingH, Glob, parsec >= 3 && <4, zip
 
   ghc-options: -fwarn-unused-imports
+
+Test-Suite spec
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       test
+  Ghc-Options:          -Wall
+  Main-Is:              Spec.hs
+  Build-Depends:        base, hspec
 
 Source-repository head
   type:     git
