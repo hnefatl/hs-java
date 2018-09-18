@@ -77,3 +77,13 @@ zipJAR trees =
     treeToEntries folder (File (fileName, cls)) = [(folder </> fileName, encodeClass cls)]
     treeToEntries folder (Directory folderName contents) = (treeToEntries (folder </> folderName)) =<< contents
 
+zipJAREntries :: [Tree (FilePath, BS.ByteString)] -> Zip.ZipArchive ()
+zipJAREntries trees =
+  void $ traverse addEntry (trees >>= (treeToEntries mempty))
+  where
+    addEntry (f, cont) = do
+      pth <- Zip.mkEntrySelector f
+      Zip.addEntry Zip.Store cont pth
+
+    treeToEntries folder (File (fileName, cont)) = [(folder </> fileName, cont)]
+    treeToEntries folder (Directory folderName contents) = (treeToEntries (folder </> folderName)) =<< contents
