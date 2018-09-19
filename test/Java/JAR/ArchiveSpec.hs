@@ -16,6 +16,9 @@ withTempFile pth action = do
   fileExists <- doesFileExist pth
   when fileExists (removeFile pth)
 
+mkArchive :: FilePath -> [Tree (FilePath, BS.ByteString)] -> IO ()
+mkArchive archiveName cont = Zip.createArchive archiveName $ zipJAREntries cont
+
 spec :: Spec
 spec =
   let archiveName = "test" </> "resources" </> "archivespec" </> "zip.jar"
@@ -37,10 +40,10 @@ spec =
           ]
         ]
       entries cont = do
-        _ <- Zip.createArchive archiveName $ zipJAREntries cont
+        _ <- mkArchive archiveName cont
         Zip.withArchive archiveName $ archivePaths
       getContent cont pth = do
-        _ <- Zip.createArchive archiveName $ zipJAREntries cont
+        _ <- mkArchive archiveName cont
         readJAREntry archiveName pth
   in
   do around_ (withTempFile archiveName) $ do
