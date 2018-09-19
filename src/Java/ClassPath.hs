@@ -27,7 +27,7 @@ glob dir patterns = do
 -- | Append one file to ClassPath forest
 appendPath :: FilePath -> [Tree CPEntry] -> [Tree CPEntry]
 appendPath path forest =
-  merge $ forest ++ (mapF NotLoaded $ buildTree [map repl path])
+  merge $ forest ++ ((NotLoaded <$>) <$> buildTree [map repl path])
   where
     repl '\\' = '/'
     repl x = x

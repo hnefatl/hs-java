@@ -33,7 +33,7 @@ archivePaths = (Zip.unEntrySelector <$>) <$> (M.keys <$> Zip.getEntries)
 readAllJAR :: FilePath -> IO [Tree CPEntry]
 readAllJAR jarfile = do
     files <- Zip.withArchive jarfile $ archivePaths
-    return $ mapF (NotLoadedJAR jarfile) (buildTree $ filter good files)
+    return $ (NotLoadedJAR jarfile <$>) <$> (buildTree $ filter good files)
   where
     good file = ".class" `isSuffixOf` file
 
@@ -67,15 +67,18 @@ checkClassTree forest = mapFMF check forest
 
 zipJAR :: [Tree (FilePath, Class Direct)] -> Zip.ZipArchive ()
 zipJAR trees =
-  void $ traverse addEntry (trees >>= (treeToEntries mempty))
+  zipJAREntries $ (toBytesString <$>) <$> trees
   where
-    addEntry (f, a) = do
-      pth <- Zip.mkEntrySelector f
-      let cont = BS.pack $ B.unpack a
-      Zip.addEntry Zip.Store cont pth
-
-    treeToEntries folder (File (fileName, cls)) = [(folder </> fileName, encodeClass cls)]
-    treeToEntries folder (Directory folderName contents) = (treeToEntries (folder </> folderName)) =<< contents
+    toBytesString (f, cl) = (f, BS.pack $ B.unpack $ encodeClass cl)
+  --void $ traverse addEntry (trees >>= (treeToEntries mempty))
+  --where
+  --  addEntry (f, a) = do
+  --    pth <- Zip.mkEntrySelector f
+  --    let cont = BS.pack $ B.unpack a
+  --    Zip.addEntry Zip.Store cont pth
+  --
+  --  treeToEntries folder (File (fileName, cls)) = [(folder </> fileName, encodeClass cls)]
+  --  treeToEntries folder (Directory folderName contents) = (treeToEntries (folder </> folderName)) =<< contents
 
 zipJAREntries :: [Tree (FilePath, BS.ByteString)] -> Zip.ZipArchive ()
 zipJAREntries trees =

@@ -7,32 +7,13 @@ import System.FilePath
 
 import Java.ClassPath.Types
 
--- | map on forest
-mapF ::  (t -> a) -> [Tree t] -> [Tree a]
-mapF fn forest = map (mapT fn) forest
-
--- | mapM on forest
-mapFM :: (Monad m, Functor m) => (t -> m a) -> [Tree t] -> m [Tree a]
-mapFM fn forest = mapM (mapTM fn) forest
-
--- | mapM on tree
-mapTM ::  (Monad m, Functor m) => (t -> m a) -> Tree t -> m (Tree a)
-mapTM fn (Directory dir forest) = Directory dir `fmap` mapFM fn forest
-mapTM fn (File a) = File `fmap` fn a
-
 mapFMF ::  (Monad m, Functor m) => (FilePath -> t -> m a) -> [Tree t] -> m [Tree a]
-mapFMF fn forest = mapM (mapTMF fn) forest
-
-mapTMF ::  (Monad m, Functor m) => (FilePath -> t -> m a) -> Tree t -> m (Tree a)
-mapTMF fn t = go "" t
+mapFMF fn forest =
+  mapM (mapTMF fn) forest
   where
+    mapTMF fn t = go "" t
     go path (Directory dir forest) = Directory dir `fmap` mapM (go $ path </> dir) forest
     go path (File a) = File `fmap` fn path a
-
--- | map on tree
-mapT ::  (t -> a) -> Tree t -> Tree a
-mapT fn (Directory dir forest) = Directory dir (mapF fn forest)
-mapT fn (File a) = File (fn a)
 
 -- | Build tree from list of filenames.
 -- For example, ["org/haskell", "org/java"] --> [org/{haskell, java}]
@@ -60,7 +41,7 @@ merge :: [Tree CPEntry] -> [Tree CPEntry]
 merge [] = []
 merge [t1,t2] = merge1 [t1] t2
 merge (t:ts) = foldl merge1 [t] ts
-  
+
 -- | Add one ClassPath tree to forest.
 merge1 :: [Tree CPEntry] -> Tree CPEntry -> [Tree CPEntry]
 merge1 [] x = [x]
@@ -69,6 +50,6 @@ merge1 (x@(File e): es) y@(File e') | e == e'   = x: es
 merge1 (d@(Directory _ _):es) f@(File _) = d: merge1 es f
 merge1 (f@(File _):es) d@(Directory _ _) = f: merge1 es d
 merge1 (x@(Directory dir f):es) y@(Directory dir' f')
-  | dir == dir' = Directory dir (merge $ f ++ f'): es 
+  | dir == dir' = Directory dir (merge $ f ++ f'): es
   | otherwise   = x: merge1 es y
 

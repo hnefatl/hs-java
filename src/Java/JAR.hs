@@ -33,7 +33,7 @@ readManifest = do
 readOne :: FilePath -> String -> Zip.ZipArchive [Tree CPEntry]
 readOne jarfile str = do
     files <- archivePaths
-    return $ mapF (NotLoadedJAR jarfile) (buildTree $ filter good files)
+    return $ ((NotLoadedJAR jarfile) <$>) <$> (buildTree $ filter good files)
   where
     good name = (str `isPrefixOf` name) && (".class" `isSuffixOf` name)
 

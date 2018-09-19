@@ -1,4 +1,4 @@
-
+{-# LANGUAGE DeriveFunctor #-}
 module Java.ClassPath.Types where
 
 import Control.Monad.State
@@ -10,7 +10,7 @@ import JVM.ClassFile
 data Tree a =
     Directory FilePath [Tree a]
   | File a
-  deriving (Eq)
+  deriving (Eq, Functor)
 
 instance Show a => Show (Tree a) where
   show (Directory dir forest) = dir ++ "/{" ++ intercalate ", " (map show forest) ++ "}"
