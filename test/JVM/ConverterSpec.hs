@@ -36,5 +36,6 @@ spec = do
     testClass "Hello.class"
     testClass "Bicycle.class"
     testClass "ACMEBicycle.class"
-    testClass "InnerClass.class"
+    testClass "StaticInit.class"
+    -- testClass "InnerClass.class"
     -- testClass "Rectangle.class"

@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module JVM.Dump where
 
+import Data.List
+
 import Control.Monad
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -10,6 +12,7 @@ import JVM.Common ()
 import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
+import JVM.Attributes.InnerClasses
 
 -- | Dump a class to console.
 dumpClass :: Class Direct -> IO ()
@@ -30,4 +33,16 @@ dumpClass cls = do
                          in  forM_ (codeInstructions code) $ \i -> do
                                putStr "  "
                                print i
+      case attrByName m "InnerClasses" of
+        Nothing -> putStrLn "(no inner classes)\n"
+        Just bytecode -> let classes = decodeInnerClasses bytecode
+                         in  forM_ (icsClasses classes) $ \i -> do
+                                print $ (intercalate " " (show <$> (innerClassAccessFlag i))) ++
+                                        "#" ++
+                                        (show $ innerNameIndex i) ++
+                                        "= #" ++
+                                        (show $ innerClassInfoIndex i) ++
+                                        " of #"
+                                        ++ (show $ outerClassInfoIndex i)
+
 
