@@ -201,7 +201,7 @@ startMethod flags name sig = do
     methodName = name,
     methodSignature = sig,
     methodAttributesCount = 0,
-    methodAttributes = AR M.empty }
+    methodAttributes = AR [] }
   St.put $ st {generated = [],
                currentMethod = Just method }
 
@@ -213,7 +213,7 @@ endMethod = do
   case m of
     Nothing -> throw UnexpectedEndMethod
     Just method -> do
-      let method' = method {methodAttributes = AR $ M.fromList [("Code", encodeMethod code)],
+      let method' = method {methodAttributes = AR $ [("Code", encodeMethod code)],
                             methodAttributesCount = 1}
       modifyGState $ \st ->
                st {generated = [],

@@ -33,16 +33,19 @@ dumpClass cls = do
                          in  forM_ (codeInstructions code) $ \i -> do
                                putStr "  "
                                print i
-      case attrByName m "InnerClasses" of
-        Nothing -> putStrLn "(no inner classes)\n"
-        Just bytecode -> let classes = decodeInnerClasses bytecode
-                         in  forM_ (icsClasses classes) $ \i -> do
-                                print $ (intercalate " " (show <$> (innerClassAccessFlag i))) ++
-                                        "#" ++
-                                        (show $ innerNameIndex i) ++
-                                        "= #" ++
-                                        (show $ innerClassInfoIndex i) ++
-                                        " of #"
-                                        ++ (show $ outerClassInfoIndex i)
+
+    case arlookup "InnerClasses" (classAttributes cls) of
+      Nothing -> return ()
+      Just bytecode -> let classes = decodeInnerClasses bytecode
+                        in  forM_ (icsClasses classes) $ \i -> do
+                              putStr ">> InnerClasses "
+                              putStrLn $
+                                (intercalate " " (show <$> (innerClassAccessFlag i))) ++
+                                " #" ++
+                                (show $ innerNameIndex i) ++
+                                "= #" ++
+                                (show $ innerClassInfoIndex i) ++
+                                " of #"
+                                ++ (show $ outerClassInfoIndex i)
 
 

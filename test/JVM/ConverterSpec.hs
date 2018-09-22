@@ -10,6 +10,8 @@ import JVM.ClassFile
 
 import qualified Data.ByteString.Lazy as B
 
+import JVM.Dump
+
 shouldMatchDecodeEncode :: FilePath  -> IO ()
 shouldMatchDecodeEncode pth =
   do
@@ -19,6 +21,8 @@ shouldMatchDecodeEncode pth =
     clsDir <- parseClassFile pth
     print "class"
     print (show clsDir)
+    print "===================="
+    dumpClass clsDir
     let encoded = encodeClass clsDir
     -- print "encoded"
     -- print encoded
@@ -37,5 +41,6 @@ spec = do
     testClass "Bicycle.class"
     testClass "ACMEBicycle.class"
     testClass "StaticInit.class"
-    -- testClass "InnerClass.class"
-    -- testClass "Rectangle.class"
+    testClass "InnerClass.class"
+    testClass "Rectangle.class"
+    testClass "Rectangle$Point.class"

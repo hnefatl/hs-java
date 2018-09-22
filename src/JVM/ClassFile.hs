@@ -29,7 +29,7 @@ module JVM.ClassFile
    long,
    toString,
    className,
-   apsize, arsize, arlist
+   apsize, arsize, arlist, arlookup
   )
   where
 
@@ -108,19 +108,23 @@ instance Default (Attributes File) where
   def = AP []
 
 -- | At Direct stage, attributes are represented as a Map.
-data instance Attributes Direct = AR (M.Map B.ByteString B.ByteString)
+data instance Attributes Direct = AR [(B.ByteString, B.ByteString)]
   deriving (Eq, Show)
 
 instance Default (Attributes Direct) where
-  def = AR M.empty
+  def = AR []
 
 -- | Size of attributes set at Direct stage
 arsize :: Attributes Direct -> Int
-arsize (AR m) = M.size m
+arsize (AR m) = length m
 
 -- | Associative list of attributes at Direct stage
 arlist :: Attributes Direct -> [(B.ByteString, B.ByteString)]
-arlist (AR m) = M.assocs m
+arlist (AR m) = m
+
+-- | Map of attributes at Direct stage
+arlookup :: B.ByteString -> Attributes Direct -> Maybe B.ByteString
+arlookup nm (AR m) = M.lookup nm (M.fromList m)
 
 -- | Size of attributes set at File stage
 apsize :: Attributes File -> Int

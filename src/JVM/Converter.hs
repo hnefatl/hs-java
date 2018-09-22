@@ -233,7 +233,7 @@ methodFile2Direct pool (Method {..}) = Method {
   methodAttributes = attributesFile2Direct pool methodAttributes }
 
 attributesFile2Direct :: Pool Direct -> Attributes File -> Attributes Direct
-attributesFile2Direct pool (AP attrs) = AR (M.fromList $ map go attrs)
+attributesFile2Direct pool (AP attrs) = AR (map go attrs)
   where
     go :: Attribute -> (B.ByteString, B.ByteString)
     go (Attribute {..}) = (getString $ pool ! attributeName,
@@ -247,8 +247,7 @@ methodByName cls name =
 -- | Try to get object attribute by name
 attrByName :: (HasAttributes a) => a Direct -> B.ByteString -> Maybe B.ByteString
 attrByName x name =
-  let (AR m) = attributes x
-  in  M.lookup name m
+  arlookup name (attributes x)
 
 -- | Try to get Code for class method (no Code for interface methods)
 methodCode :: Class Direct
