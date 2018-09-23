@@ -26,6 +26,7 @@ import JVM.ClassFile
 import JVM.Common
 import JVM.Exceptions
 import Control.Monad.Except
+import JVM.BitMask.BitMask
 
 -- | Parse .class file data
 parseClass :: B.ByteString -> Class Direct
@@ -196,25 +197,11 @@ poolFile2Direct ps = pool
     convert (CUTF8 bs) = CUTF8 bs
     convert (CUnicode bs) = CUnicode bs
 
-accessFile2Direct :: AccessFlags File -> AccessFlags Direct
-accessFile2Direct w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
-   ACC_PUBLIC,
-   ACC_PRIVATE,
-   ACC_PROTECTED,
-   ACC_STATIC,
-   ACC_FINAL,
-   ACC_SYNCHRONIZED,
-   ACC_VOLATILE,
-   ACC_TRANSIENT,
-   ACC_NATIVE,
-   ACC_INTERFACE,
-   ACC_ABSTRACT ]
+accessFile2Direct :: BitMask a => Enum a => Ord a => AccessFlags File -> S.Set a
+accessFile2Direct w = S.fromList $ toMask w
 
-accessDirect2File :: AccessFlags Direct -> AccessFlags File
-accessDirect2File fs = bitsOr $ map toBit $ S.toList fs
-  where
-    bitsOr = foldl (.|.) 0
-    toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)
+accessDirect2File :: BitMask a => Enum a => Ord a => S.Set a -> AccessFlags File
+accessDirect2File fs = maskValue (S.toList fs)
 
 fieldFile2Direct :: Pool Direct -> Field File -> Field Direct
 fieldFile2Direct pool (Field {..}) = Field {

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts, Rank2Types #-}
 
--- import Control.Exception
+module TestGen where
+
 import qualified Data.ByteString.Lazy as B
 
 import JVM.ClassFile
@@ -15,6 +16,7 @@ import qualified Java.IO
 
 import Control.Exception.Safe.Checked
 import Control.Monad.State
+import JVM.AccessFlag
 
 test ::(Throws ENotFound,
         Throws ENotLoaded,
@@ -31,7 +33,7 @@ test = do
   helloJava <- getClassMethod "./Hello" "hello"
 
   -- Initializer method. Just calls java.lang.Object.<init>
-  newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
+  newMethod [M_PUBLIC] "<init>" [] ReturnsVoid $ do
       setStackSize 1
 
       aload_ I0
@@ -39,7 +41,7 @@ test = do
       i0 RETURN
 
   -- Declare hello() method and bind it's signature to hello.
-  hello <- newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
+  hello <- newMethod [M_PUBLIC, M_STATIC] "hello" [IntType] ReturnsVoid $ do
       setStackSize 8
 
       getStaticField Java.Lang.system Java.IO.out
@@ -61,7 +63,7 @@ test = do
       i0 RETURN
 
   -- Main class method.
-  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [arrayOf Java.Lang.stringClass] ReturnsVoid $ do
+  newMethod [M_PUBLIC, M_STATIC] "main" [arrayOf Java.Lang.stringClass] ReturnsVoid $ do
       setStackSize 1
 
       iconst_5

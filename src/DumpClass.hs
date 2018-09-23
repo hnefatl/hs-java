@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module DumpClass where
 
 import Data.Binary
 import System.Environment

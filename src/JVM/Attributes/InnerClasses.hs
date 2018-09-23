@@ -3,10 +3,10 @@
 module JVM.Attributes.InnerClasses where
 
 import Data.Word
-import Data.Bits (xor, testBit)
 import Data.BinaryState
 import Control.Monad
 import qualified Data.ByteString.Lazy as B
+import JVM.BitMask.BitMask
 
 data InnerClasses = InnerClasses {
   icsNumberOfClasses :: Word16,
@@ -36,14 +36,14 @@ instance BinaryState Integer ClassEntry where
     put innerClassInfoIndex
     put outerClassInfoIndex
     put innerNameIndex
-    put $ nestedClassFlagsValue innerClassAccessFlag
+    put $ (maskValue innerClassAccessFlag :: Word16)
 
   get = do
     innerIndex <- get
     outerIndex <- get
     nameIndex <- get
     flagValue <- get
-    return $ ClassEntry innerIndex outerIndex nameIndex (word16ToNestedClassFlags flagValue)
+    return $ ClassEntry innerIndex outerIndex nameIndex (toMask (flagValue :: Word16))
 
 
 data NestedClassFlag =
@@ -61,33 +61,18 @@ data NestedClassFlag =
     | ACC_ENUM          -- ^ 0x4000
     deriving (Eq, Show, Ord, Enum)
 
-nestedClassFlagValueBit :: NestedClassFlag -> Integer
-nestedClassFlagValueBit x = case x of
-  ACC_PUBLIC       -> 0
-  ACC_PRIVATE      -> 1
-  ACC_PROTECTED    -> 2
-  ACC_STATIC       -> 3
-  ACC_FINAL        -> 4
-  ACC_INTERFACE    -> 9
-  ACC_ABSTRACT     -> 10
-  ACC_SYNTHETIC    -> 12
-  ACC_ANNOTATION   -> 13
-  ACC_ENUM         -> 14
-
-nestedClassFlagValue :: NestedClassFlag -> Word16
-nestedClassFlagValue f = fromInteger (2 ^ (nestedClassFlagValueBit f))
-
-nestedClassFlagsValue :: [NestedClassFlag] -> Word16
-nestedClassFlagsValue = foldl (\v -> (xor v) . nestedClassFlagValue) 0
-
-word16ToNestedClassFlags :: Word16 -> [NestedClassFlag]
-word16ToNestedClassFlags n =
-  filterFalse =<< (mkPair <$> all)
-  where
-    filterFalse (_, False) = []
-    filterFalse (x, _) = [x]
-    all = enumFrom (toEnum 0)
-    mkPair f = (f, testBit n (fromInteger $ nestedClassFlagValueBit f))
+instance BitMask NestedClassFlag where
+  maskBit x = case x of
+    ACC_PUBLIC       -> 0
+    ACC_PRIVATE      -> 1
+    ACC_PROTECTED    -> 2
+    ACC_STATIC       -> 3
+    ACC_FINAL        -> 4
+    ACC_INTERFACE    -> 9
+    ACC_ABSTRACT     -> 10
+    ACC_SYNTHETIC    -> 12
+    ACC_ANNOTATION   -> 13
+    ACC_ENUM         -> 14
 
 decodeInnerClasses :: B.ByteString -> InnerClasses
 decodeInnerClasses = decodeS (0 :: Integer)

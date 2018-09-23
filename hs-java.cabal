@@ -16,10 +16,6 @@ Description:    This package declares data types for Java .class files format an
                 instance of GeneratorMonad class, not only MonadState GState.
 Bug-reports: http://redmine.iportnov.ru/projects/hs-java/
 
-Extra-source-files: src/dump-class.hs
-                    src/rebuild-class.hs
-                    src/TestGen.hs
-
 library
   Hs-Source-Dirs:  src
 
@@ -33,6 +29,8 @@ library
                    JVM.Dump
                    JVM.Exceptions
                    JVM.Attributes.InnerClasses
+                   JVM.BitMask.BitMask
+                   JVM.AccessFlag
                    Java.Lang
                    Java.IO
                    Java.ClassPath
@@ -44,6 +42,9 @@ library
                    Java.META.Types
                    Java.META.Spec
                    Java.META.Parser
+                   TestGen
+                   DumpClass
+                   RebuildClass
 
   Build-Depends:
       array

@@ -39,6 +39,7 @@ import JVM.ClassFile
 import JVM.Assembler
 import JVM.Exceptions
 import Java.ClassPath
+import JVM.AccessFlag
 
 -- | Generator state
 data GState = GState {
@@ -189,7 +190,7 @@ setMaxLocals n = do
   modifyGState $ \st -> st {locals = n}
 
 -- | Start generating new method
-startMethod :: (Monad m, MonadState GState m) => [AccessFlag] -> B.ByteString -> MethodSignature -> m ()
+startMethod :: (Monad m, MonadState GState m) => [MethodAccessFlag] -> B.ByteString -> MethodSignature -> m ()
 startMethod flags name sig = do
   addToPool (CString name)
   addSig sig
@@ -222,7 +223,7 @@ endMethod = do
 
 -- | Generate new method
 newMethod :: (Monad m, MonadState GState m, MonadThrow m, Throws UnexpectedEndMethod)
-          => [AccessFlag]        -- ^ Access flags for method (public, static etc)
+          => [MethodAccessFlag]        -- ^ Access flags for method (public, static etc)
           -> B.ByteString        -- ^ Method name
           -> [ArgumentSignature] -- ^ Signatures of method arguments
           -> ReturnSignature     -- ^ Method return signature

@@ -19,6 +19,8 @@ module JVM.ClassFile
    Method (..), Field (..), Class (..),
    Constant (..),
    AccessFlag (..), AccessFlags,
+   FieldAccessFlag (..), FieldAccessFlags,
+   MethodAccessFlag (..), MethodAccessFlags,
    Attributes (..),
    defaultClass,
    -- * Misc
@@ -47,6 +49,8 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 import Codec.Binary.UTF8.String hiding (encode, decode)
+
+import JVM.AccessFlag
 
 -- $about
 --
@@ -88,7 +92,7 @@ type instance Link File a = Word16
 -- | At Direct stage, Link contain object itself.
 type instance Link Direct a = a
 
--- | Object (class, method, field …) access flags
+-- | Class access flags
 type family AccessFlags stage
 
 -- | At File stage, access flags are represented as Word16
@@ -96,6 +100,24 @@ type instance AccessFlags File = Word16
 
 -- | At Direct stage, access flags are represented as set of flags.
 type instance AccessFlags Direct = S.Set AccessFlag
+
+-- | Method access flags
+type family MethodAccessFlags stage
+
+-- | At File stage, access flags are represented as Word16
+type instance MethodAccessFlags File = Word16
+
+-- | At Direct stage, access flags are represented as set of flags.
+type instance MethodAccessFlags Direct = S.Set MethodAccessFlag
+
+-- | Field access flags
+type family FieldAccessFlags stage
+
+-- | At File stage, access flags are represented as Word16
+type instance FieldAccessFlags File = Word16
+
+-- | At Direct stage, access flags are represented as set of flags.
+type instance FieldAccessFlags Direct = S.Set FieldAccessFlag
 
 -- | Object (class, method, field) attributes
 data family Attributes stage
@@ -130,20 +152,20 @@ arlookup nm (AR m) = M.lookup nm (M.fromList m)
 apsize :: Attributes File -> Int
 apsize (AP list) = length list
 
--- | Access flags. Used for classess, methods, variables.
-data AccessFlag =
-    ACC_PUBLIC       -- ^ 0x0001 Visible for all
-  | ACC_PRIVATE      -- ^ 0x0002 Visible only for defined class
-  | ACC_PROTECTED    -- ^ 0x0004 Visible only for subclasses
-  | ACC_STATIC       -- ^ 0x0008 Static method or variable
-  | ACC_FINAL        -- ^ 0x0010 No further subclassing or assignments
-  | ACC_SYNCHRONIZED -- ^ 0x0020 Uses monitors
-  | ACC_VOLATILE     -- ^ 0x0040 Could not be cached
-  | ACC_TRANSIENT    -- ^ 0x0080
-  | ACC_NATIVE       -- ^ 0x0100 Implemented in other language
-  | ACC_INTERFACE    -- ^ 0x0200 Class is interface
-  | ACC_ABSTRACT     -- ^ 0x0400
-  deriving (Eq, Show, Ord, Enum)
+-- -- | Access flags. Used for classess, methods, variables.
+-- data AccessFlag =
+--     ACC_PUBLIC       -- ^ 0x0001 Visible for all
+--   | ACC_PRIVATE      -- ^ 0x0002 Visible only for defined class
+--   | ACC_PROTECTED    -- ^ 0x0004 Visible only for subclasses
+--   | ACC_STATIC       -- ^ 0x0008 Static method or variable
+--   | ACC_FINAL        -- ^ 0x0010 No further subclassing or assignments
+--   | ACC_SYNCHRONIZED -- ^ 0x0020 Uses monitors
+--   | ACC_VOLATILE     -- ^ 0x0040 Could not be cached
+--   | ACC_TRANSIENT    -- ^ 0x0080
+--   | ACC_NATIVE       -- ^ 0x0100 Implemented in other language
+--   | ACC_INTERFACE    -- ^ 0x0200 Class is interface
+--   | ACC_ABSTRACT     -- ^ 0x0400
+--   deriving (Eq, Show, Ord, Enum)
 
 -- | Fields and methods have signatures.
 class (Binary (Signature a), Show (Signature a), Eq (Signature a))
@@ -541,7 +563,7 @@ getPool n = do
 
 -- | Class field format
 data Field stage = Field {
-  fieldAccessFlags :: AccessFlags stage,
+  fieldAccessFlags :: FieldAccessFlags stage,
   fieldName :: Link stage B.ByteString,
   fieldSignature :: Link stage FieldSignature,
   fieldAttributesCount :: Word16,
@@ -581,7 +603,7 @@ instance Binary (Field File) where
 
 -- | Class method format
 data Method stage = Method {
-  methodAccessFlags :: AccessFlags stage,
+  methodAccessFlags :: MethodAccessFlags stage,
   methodName :: Link stage B.ByteString,
   methodSignature :: Link stage MethodSignature,
   methodAttributesCount :: Word16,

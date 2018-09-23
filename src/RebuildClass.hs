@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+module RebuildClass where
 
 import Data.Binary
 import System.Environment
