@@ -3,32 +3,26 @@ module JVM.AccessFlag where
 import JVM.BitMask.BitMask
 
 data AccessFlag =
-    ACC_PUBLIC       -- 0x0001 Visible for all
-  | ACC_PRIVATE      -- 0x0002 Visible only for defined class
-  | ACC_PROTECTED    -- 0x0004 Visible only for subclasses
-  | ACC_STATIC       -- 0x0008 Static method or variable
-  | ACC_FINAL        -- 0x0010 No further subclassing or assignments
-  | ACC_SYNCHRONIZED -- 0x0020 Uses monitors
-  | ACC_VOLATILE     -- 0x0040 Could not be cached
-  | ACC_TRANSIENT    -- 0x0080
-  | ACC_NATIVE       -- 0x0100 Implemented in other language
-  | ACC_INTERFACE    -- 0x0200 Class is interface
-  | ACC_ABSTRACT     -- 0x0400
+  ACC_PUBLIC         -- 0x0001 Declared public; may be accessed from outside its package.
+  | ACC_FINAL        -- 0x0010 Declared final; no subclasses allowed.
+  | ACC_SUPER        -- 0x0020 Treat superclass methods specially when invoked by the invokespecial instruction.
+  | ACC_INTERFACE    -- 0x0200 Is an interface, not a class.
+  | ACC_ABSTRACT     -- 0x0400 Declared abstract; must not be instantiated.
+  | ACC_SYNTHETIC    -- 0x1000 Declared synthetic; not present in the source code.
+  | ACC_ANNOTATION   -- 0x2000 Declared as an annotation type.
+  | ACC_ENUM         -- 0x4000 Declared as an enum ty
   deriving (Eq, Show, Ord, Enum)
 
 instance BitMask AccessFlag where
   maskBit x = case x of
-    ACC_PUBLIC         -> 0      -- 0x0001
-    ACC_PRIVATE        -> 1      -- 0x0002
-    ACC_PROTECTED      -> 2      -- 0x0004
-    ACC_STATIC         -> 3      -- 0x0008
-    ACC_FINAL          -> 4      -- 0x0010
-    ACC_SYNCHRONIZED   -> 5      -- 0x0020
-    ACC_VOLATILE       -> 6      -- 0x0040
-    ACC_TRANSIENT      -> 7      -- 0x0080
-    ACC_NATIVE         -> 8      -- 0x0100
-    ACC_INTERFACE      -> 9      -- 0x0200
-    ACC_ABSTRACT       -> 10     -- 0x0400
+    ACC_PUBLIC       -> 0        -- 0x0001
+    ACC_FINAL        -> 4        -- 0x0010
+    ACC_SUPER        -> 5        -- 0x0020
+    ACC_INTERFACE    -> 9        -- 0x0200
+    ACC_ABSTRACT     -> 10       -- 0x0400
+    ACC_SYNTHETIC    -> 12       -- 0x1000
+    ACC_ANNOTATION   -> 13       -- 0x2000
+    ACC_ENUM         -> 14       -- 0x4000
 
 data MethodAccessFlag =
   M_PUBLIC                       -- 0x0001 Declared public; may be accessed from outside its package.
