@@ -93,7 +93,7 @@ poolDirect2File pool = result
     cpInfo (CMethod cls name) =
       CMethod (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
     cpInfo (CIfaceMethod cls name) =
-      CIfaceMethod (force "iface method a" $ poolIndex result cls) (force "iface method b" $ poolNTIndex result name)
+      CIfaceMethod (force "iface method a" $ poolClassIndex result cls) (force "iface method b" $ poolNTIndex result name)
     cpInfo (CString s) = CString (force "string" $ poolIndex result s)
     cpInfo (CInteger x) = CInteger x
     cpInfo (CFloat x) = CFloat x
@@ -112,7 +112,7 @@ poolIndex list name = case mapFindIndex test list of
   where
     test (CUTF8 s)    | s == name = True
     test (CUnicode s) | s == name = True
-    test _                                  = False
+    test _                        = False
 
 -- | Find index of given string in the list of constants
 poolClassIndex :: Pool File -> B.ByteString -> Except NoItemInPool Word16
@@ -124,10 +124,10 @@ poolClassIndex list name = case mapFindIndex checkString list of
   where
     checkString (CUTF8 s)    | s == name = True
     checkString (CUnicode s) | s == name = True
-    checkString _                                  = False
+    checkString _                        = False
 
     checkClass i (CClass x) | i == x = True
-    checkClass _ _                           = False
+    checkClass _ _                   = False
 
 poolNTIndex list x@(NameType n t) = do
     ni <- poolIndex list n
