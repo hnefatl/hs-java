@@ -135,7 +135,7 @@ instance MonadIO m => MonadIO (GeneratorT m) where
 
 
 -- | Update ClassPath
-withClassPath :: ClassPath () -> GeneratorIO ()
+withClassPath :: (MonadIO m, MonadGenerator m) => ClassPath () -> m ()
 withClassPath cp = do
   res <- liftIO $ execClassPath cp
   st <- getGState
@@ -277,7 +277,7 @@ newMethod flags name args ret gen = do
     return (NameType name sig)
 
 -- | Get a class from current ClassPath
-getClass :: String -> GeneratorIO (Class Direct)
+getClass :: (MonadIO m, MonadGenerator m) => String -> m (Class Direct)
 getClass name = do
     cp <- getsGState classPath
     res <- liftIO $ getEntry cp name
@@ -289,7 +289,7 @@ getClass name = do
         Nothing                 -> throwG (ClassNotFound name)
 
 -- | Get class field signature from current ClassPath
-getClassField :: String -> B.ByteString -> GeneratorIO (NameType (Field Direct))
+getClassField :: (MonadIO m, MonadGenerator m) => String -> B.ByteString -> m (NameType (Field Direct))
 getClassField clsName fldName = do
     cls <- getClass clsName
     case lookupField fldName cls of
@@ -297,7 +297,7 @@ getClassField clsName fldName = do
         Nothing  -> throwG (FieldNotFound clsName fldName)
 
 -- | Get class method signature from current ClassPath
-getClassMethod :: String -> B.ByteString -> GeneratorIO (NameType (Method Direct))
+getClassMethod :: (MonadIO m, MonadGenerator m) => String -> B.ByteString -> m (NameType (Method Direct))
 getClassMethod clsName mName = do
     cls <- getClass clsName
     case lookupMethod mName cls of
