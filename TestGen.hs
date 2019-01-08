@@ -1,10 +1,5 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts, Rank2Types #-}
 
-<<<<<<< HEAD
--- import Control.Exception
-=======
-import Control.Monad.Catch
->>>>>>> mtl
 import qualified Data.ByteString.Lazy as B
 
 import JVM.ClassFile
@@ -17,19 +12,7 @@ import Java.ClassPath
 import qualified Java.Lang
 import qualified Java.IO
 
-<<<<<<< HEAD
-import Control.Exception.Safe.Checked
-import Control.Monad.State
-
-test ::(Throws ENotFound,
-        Throws ENotLoaded,
-        Throws UnexpectedEndMethod,
-        MonadThrow m,
-        MonadIO m,
-        MonadState GState m) => m ()
-=======
-test :: GenerateIO ()
->>>>>>> mtl
+test :: GeneratorIO ()
 test = do
   withClassPath $ do
       -- Add current directory (with Hello.class) to ClassPath
@@ -79,19 +62,7 @@ test = do
 
   return ()
 
-raiseErr :: Show e => e -> a
-raiseErr e = error (show e)
-
-catchENotFound :: MonadCatch m => (Throws ENotFound => m a) -> m a
-catchENotFound ma = catch ma (raiseErr :: ENotFound -> a)
-
-catchENotLoaded :: MonadCatch m => (Throws ENotLoaded => m a) -> m a
-catchENotLoaded ma = catch ma (raiseErr :: ENotLoaded -> a)
-
-catchUnexpectedEndMethod :: MonadCatch m => (Throws UnexpectedEndMethod => m a) -> m a
-catchUnexpectedEndMethod ma = catch ma (raiseErr :: UnexpectedEndMethod -> a)
-
 main :: IO ()
 main = do
-  testClass <- generateIO [] "Test" $ catchENotFound $ catchENotLoaded $ catchUnexpectedEndMethod test
+  testClass <- generateIO [] "Test" test
   B.writeFile "Test.class" (encodeClass testClass)

@@ -27,7 +27,7 @@ module JVM.Builder.Monad (
     setStackSize, setMaxLocals,
     withClassPath,
     getClassField, getClassMethod,
-    generate, generateT,
+    generate, generateT, generateIO,
     generateCodeLength
   ) where
 
@@ -348,6 +348,16 @@ generateT cp name gen = do
         superClass = "java/lang/Object",
         classMethodsCount = fromIntegral $ length (doneMethods res),
         classMethods = doneMethods res }
+
+generateIO :: [Tree CPEntry]
+         -> B.ByteString
+         -> GeneratorIO ()
+         -> IO (Class Direct)
+generateIO cp name gen = do
+    x <- runExceptT $ generateT cp name gen
+    case x of
+        Left err -> error (show err)
+        Right res -> return res
 
 -- | Generate a class
 generate :: [Tree CPEntry]
