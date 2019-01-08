@@ -2,10 +2,10 @@
 -- | This module exports definitions for some most used classes and methods from standard Java java.io package.
 module Java.IO where
 
-import Data.String
+import           Data.String
 
-import JVM.Common ()  -- import instances only
-import JVM.ClassFile
+import           JVM.ClassFile
+import           JVM.Common    ()
 
 import qualified Java.Lang
 

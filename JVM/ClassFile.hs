@@ -1,4 +1,12 @@
-{-# LANGUAGE RecordWildCards, BangPatterns, TypeFamilies, StandaloneDeriving, FlexibleContexts, FlexibleInstances, UndecidableInstances, TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses         #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
 module JVM.ClassFile
@@ -11,7 +19,7 @@ module JVM.ClassFile
    FieldType (..),
    -- * Signatures
    FieldSignature, MethodSignature (..), ReturnSignature (..),
-   ArgumentSignature (..),
+   ArgumentSignature,
    -- * Stage types
    File, Direct,
    -- * Staged structures
@@ -33,21 +41,21 @@ module JVM.ClassFile
   )
   where
 
-import Control.Monad
-import Control.Monad.Trans (lift)
-import Control.Applicative
-import qualified Control.Monad.State as St
-import Data.Binary
-import Data.Binary.IEEE754
-import Data.Binary.Get
-import Data.Binary.Put
-import Data.Char
-import Data.List
-import Data.Default
-import qualified Data.Set as S
-import qualified Data.Map as M
-import qualified Data.ByteString.Lazy as B
-import Codec.Binary.UTF8.String hiding (encode, decode)
+import           Codec.Binary.UTF8.String hiding (decode, encode)
+import           Control.Monad
+import qualified Control.Monad.State      as St
+import           Control.Monad.Trans      (lift)
+import           Data.Binary
+import qualified Data.BinaryState as BinaryState
+import           Data.Binary.Get
+import           Data.Binary.IEEE754
+import           Data.Binary.Put
+import qualified Data.ByteString.Lazy     as B
+import           Data.Char
+import           Data.Default
+import           Data.List
+import qualified Data.Map                 as M
+import qualified Data.Set                 as S
 
 -- $about
 --
@@ -67,18 +75,16 @@ import Codec.Binary.UTF8.String hiding (encode, decode)
 
 -- | Read one-byte Char
 getChar8 :: Get Char
-getChar8 = do
-  x <- getWord8
-  return $ chr (fromIntegral x)
+getChar8 = chr . fromIntegral <$> getWord8
 
 toString :: B.ByteString -> String
 toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
 
 -- | File stage
-data File = File
+data File
 
 -- | Direct representation stage
-data Direct = Direct
+data Direct
 
 -- | Link to some object
 type family Link stage a
@@ -89,7 +95,7 @@ type instance Link File a = Word16
 -- | At Direct stage, Link contain object itself.
 type instance Link Direct a = a
 
--- | Object (class, method, field …) access flags 
+-- | Object (class, method, field …) access flags
 type family AccessFlags stage
 
 -- | At File stage, access flags are represented as Word16
@@ -129,17 +135,17 @@ apsize (AP list) = length list
 
 -- | Access flags. Used for classess, methods, variables.
 data AccessFlag =
-    ACC_PUBLIC 	     -- ^ 0x0001 Visible for all
-  | ACC_PRIVATE 	   -- ^ 0x0002 Visible only for defined class
-  | ACC_PROTECTED 	 -- ^ 0x0004 Visible only for subclasses
-  | ACC_STATIC 	     -- ^ 0x0008 Static method or variable
-  | ACC_FINAL 	     -- ^ 0x0010 No further subclassing or assignments
+    ACC_PUBLIC          -- ^ 0x0001 Visible for all
+  | ACC_PRIVATE        -- ^ 0x0002 Visible only for defined class
+  | ACC_PROTECTED      -- ^ 0x0004 Visible only for subclasses
+  | ACC_STATIC          -- ^ 0x0008 Static method or variable
+  | ACC_FINAL          -- ^ 0x0010 No further subclassing or assignments
   | ACC_SYNCHRONIZED -- ^ 0x0020 Uses monitors
-  | ACC_VOLATILE 	   -- ^ 0x0040 Could not be cached
-  | ACC_TRANSIENT 	 -- ^ 0x0080 
-  | ACC_NATIVE 	     -- ^ 0x0100 Implemented in other language
-  | ACC_INTERFACE 	 -- ^ 0x0200 Class is interface
-  | ACC_ABSTRACT 	   -- ^ 0x0400 
+  | ACC_VOLATILE        -- ^ 0x0040 Could not be cached
+  | ACC_TRANSIENT      -- ^ 0x0080
+  | ACC_NATIVE          -- ^ 0x0100 Implemented in other language
+  | ACC_INTERFACE      -- ^ 0x0200 Class is interface
+  | ACC_ABSTRACT        -- ^ 0x0400
   deriving (Eq, Show, Ord, Enum)
 
 -- | Fields and methods have signatures.
@@ -155,7 +161,7 @@ instance HasSignature (Method Direct) where
 
 -- | Name and signature pair. Used for methods and fields.
 data NameType a = NameType {
-  ntName :: B.ByteString,
+  ntName      :: B.ByteString,
   ntSignature :: Signature a }
 
 instance (HasSignature a) => Show (NameType a) where
@@ -186,43 +192,43 @@ data Constant stage =
 -- | Name of the CClass. Error on any other constant.
 className ::  Constant Direct -> B.ByteString
 className (CClass s) = s
-className x = error $ "Not a class: " ++ show x
+className x          = error $ "Not a class: " ++ show x
 
 instance Show (Constant Direct) where
-  show (CClass name) = "class " ++ toString name
-  show (CField cls nt) = "field " ++ toString cls ++ "." ++ show nt
-  show (CMethod cls nt) = "method " ++ toString cls ++ "." ++ show nt
+  show (CClass name)         = "class " ++ toString name
+  show (CField cls nt)       = "field " ++ toString cls ++ "." ++ show nt
+  show (CMethod cls nt)      = "method " ++ toString cls ++ "." ++ show nt
   show (CIfaceMethod cls nt) = "interface method " ++ toString cls ++ "." ++ show nt
-  show (CString s) = "String \"" ++ toString s ++ "\""
-  show (CInteger x) = show x
-  show (CFloat x) = show x
-  show (CLong x) = show x
-  show (CDouble x) = show x
-  show (CNameType name tp) = toString name ++ ": " ++ toString tp
-  show (CUTF8 s) = "UTF8 \"" ++ toString s ++ "\""
-  show (CUnicode s) = "Unicode \"" ++ toString s ++ "\""
+  show (CString s)           = "String \"" ++ toString s ++ "\""
+  show (CInteger x)          = show x
+  show (CFloat x)            = show x
+  show (CLong x)             = show x
+  show (CDouble x)           = show x
+  show (CNameType name tp)   = toString name ++ ": " ++ toString tp
+  show (CUTF8 s)             = "UTF8 \"" ++ toString s ++ "\""
+  show (CUnicode s)          = "Unicode \"" ++ toString s ++ "\""
 
 -- | Constant pool
 type Pool stage = M.Map Word16 (Constant stage)
 
 -- | Generic .class file format
 data Class stage = Class {
-  magic :: Word32,                         -- ^ Magic value: 0xCAFEBABE
-  minorVersion :: Word16,
-  majorVersion :: Word16,
-  constsPoolSize :: Word16,                -- ^ Number of items in constants pool
-  constsPool :: Pool stage,                -- ^ Constants pool itself
-  accessFlags :: AccessFlags stage,        -- ^ See @JVM.Types.AccessFlag@
-  thisClass :: Link stage B.ByteString,    -- ^ Constants pool item index for this class
-  superClass :: Link stage B.ByteString,   -- ^ --/-- for super class, zero for java.lang.Object
-  interfacesCount :: Word16,               -- ^ Number of implemented interfaces
-  interfaces :: [Link stage B.ByteString], -- ^ Constants pool item indexes for implemented interfaces
-  classFieldsCount :: Word16,              -- ^ Number of class fileds
-  classFields :: [Field stage],            -- ^ Class fields
-  classMethodsCount :: Word16,             -- ^ Number of class methods
-  classMethods :: [Method stage],          -- ^ Class methods
+  magic                :: Word32,                         -- ^ Magic value: 0xCAFEBABE
+  minorVersion         :: Word16,
+  majorVersion         :: Word16,
+  constsPoolSize       :: Word16,                -- ^ Number of items in constants pool
+  constsPool           :: Pool stage,                -- ^ Constants pool itself
+  accessFlags          :: AccessFlags stage,        -- ^ See @JVM.Types.AccessFlag@
+  thisClass            :: Link stage B.ByteString,    -- ^ Constants pool item index for this class
+  superClass           :: Link stage B.ByteString,   -- ^ --/-- for super class, zero for java.lang.Object
+  interfacesCount      :: Word16,               -- ^ Number of implemented interfaces
+  interfaces           :: [Link stage B.ByteString], -- ^ Constants pool item indexes for implemented interfaces
+  classFieldsCount     :: Word16,              -- ^ Number of class fileds
+  classFields          :: [Field stage],            -- ^ Class fields
+  classMethodsCount    :: Word16,             -- ^ Number of class methods
+  classMethods         :: [Method stage],          -- ^ Class methods
   classAttributesCount :: Word16,          -- ^ Number of class attributes
-  classAttributes :: Attributes stage      -- ^ Class attributes
+  classAttributes      :: Attributes stage      -- ^ Class attributes
   }
 
 deriving instance Eq (Class File)
@@ -256,7 +262,7 @@ defaultClass = Class {
   classAttributes = def }
 
 instance Binary (Class File) where
-  put (Class {..}) = do
+  put Class {..} = do
     put magic
     put minorVersion
     put majorVersion
@@ -279,7 +285,7 @@ instance Binary (Class File) where
       fail $ "Invalid .class file MAGIC value: " ++ show magic
     minor <- get
     major <- get
-    when (major > 50) $
+    when (major > 52) $
       fail $ "Too new .class file format: " ++ show major
     poolsize <- getWord16be
     pool <- getPool (poolsize - 1)
@@ -293,7 +299,7 @@ instance Binary (Class File) where
     classMethodsCount <- get
     classMethods <- replicateM (fromIntegral classMethodsCount) get
     asCount <- get
-    as <- replicateM (fromIntegral $ asCount) get
+    as <- replicateM (fromIntegral asCount) get
     return $ Class magic minor major poolsize pool af this super
                interfacesCount ifaces classFieldsCount classFields
                classMethodsCount classMethods asCount (AP as)
@@ -313,16 +319,16 @@ data FieldType =
   deriving (Eq, Ord)
 
 instance Show FieldType where
-  show SignedByte = "byte"
-  show CharByte = "char"
-  show DoubleType = "double"
-  show FloatType = "float"
-  show IntType = "int"
-  show LongInt = "long"
-  show ShortInt = "short"
-  show BoolType = "bool"
-  show (ObjectType s) = "Object " ++ s
-  show (Array Nothing t) = show t ++ "[]"
+  show SignedByte         = "byte"
+  show CharByte           = "char"
+  show DoubleType         = "double"
+  show FloatType          = "float"
+  show IntType            = "int"
+  show LongInt            = "long"
+  show ShortInt           = "short"
+  show BoolType           = "bool"
+  show (ObjectType s)     = "Object " ++ s
+  show (Array Nothing t)  = show t ++ "[]"
   show (Array (Just n) t) = show t ++ "[" ++ show n ++ "]"
 
 -- | Class field signature
@@ -336,7 +342,7 @@ getInt = do
       then return Nothing
       else return $ Just (read s)
   where
-    getDigits :: Get [Char]
+    getDigits :: Get String
     getDigits = do
       c <- lookAhead getChar8
       if isDigit c
@@ -350,16 +356,16 @@ putString :: String -> Put
 putString str = forM_ str put
 
 instance Binary FieldType where
-  put SignedByte = put 'B'
-  put CharByte   = put 'C'
-  put DoubleType = put 'D'
-  put FloatType  = put 'F'
-  put IntType    = put 'I'
-  put LongInt    = put 'J'
-  put ShortInt   = put 'S'
-  put BoolType   = put 'Z'
-  put (ObjectType name) = put 'L' >> putString name >> put ';'
-  put (Array Nothing sig) = put '[' >> put sig
+  put SignedByte           = put 'B'
+  put CharByte             = put 'C'
+  put DoubleType           = put 'D'
+  put FloatType            = put 'F'
+  put IntType              = put 'I'
+  put LongInt              = put 'J'
+  put ShortInt             = put 'S'
+  put BoolType             = put 'Z'
+  put (ObjectType name)    = put 'L' >> putString name >> put ';'
+  put (Array Nothing sig)  = put '[' >> put sig
   put (Array (Just n) sig) = put '[' >> put (show n) >> put sig
 
   get = do
@@ -373,13 +379,8 @@ instance Binary FieldType where
       'J' -> return LongInt
       'S' -> return ShortInt
       'Z' -> return BoolType
-      'L' -> do
-             name <- getToSemicolon
-             return (ObjectType name)
-      '[' -> do
-             mbSize <- getInt
-             sig <- get
-             return (Array mbSize sig)
+      'L' -> ObjectType <$> getToSemicolon
+      '[' -> Array <$> getInt <*> get
       _   -> fail $ "Unknown signature opening symbol: " ++ [b]
 
 -- | Read string up to `;'
@@ -432,14 +433,11 @@ instance Binary MethodSignature where
 
   get =  do
     x <- getChar8
-    when (x /= '(') $
-      fail "Cannot parse method signature: no starting `(' !"
+    when (x /= '(') $ fail "Cannot parse method signature: no starting `(' !"
     args <- getArgs
     y <- getChar8
-    when (y /= ')') $
-      fail "Internal error: method signature without `)' !?"
-    ret <- get
-    return (MethodSignature args ret)
+    when (y /= ')') $ fail "Internal error: method signature without `)' !?"
+    MethodSignature args <$> get
 
 -- | Read arguments signatures (up to `)')
 getArgs :: Get [ArgumentSignature]
@@ -448,17 +446,13 @@ getArgs = whileJust getArg
     getArg :: Get (Maybe ArgumentSignature)
     getArg = do
       x <- lookAhead getChar8
-      if x == ')'
-        then return Nothing
-        else Just <$> get
+      if x == ')' then return Nothing else Just <$> get
 
 whileJust :: (Monad m) => m (Maybe a) -> m [a]
 whileJust m = do
   r <- m
   case r of
-    Just x -> do
-              next <- whileJust m
-              return (x: next)
+    Just x -> (x:) <$> whileJust m
     Nothing -> return []
 
 long :: Constant stage -> Bool
@@ -512,7 +506,6 @@ getPool n = do
           return $ (i,c): next
 
     getC = do
-      !offset <- bytesRead
       tag <- getWord8
       case tag of
         1 -> do
@@ -538,11 +531,11 @@ getPool n = do
 
 -- | Class field format
 data Field stage = Field {
-  fieldAccessFlags :: AccessFlags stage,
-  fieldName :: Link stage B.ByteString,
-  fieldSignature :: Link stage FieldSignature,
+  fieldAccessFlags     :: AccessFlags stage,
+  fieldName            :: Link stage B.ByteString,
+  fieldSignature       :: Link stage FieldSignature,
   fieldAttributesCount :: Word16,
-  fieldAttributes :: Attributes stage }
+  fieldAttributes      :: Attributes stage }
 
 deriving instance Eq (Field File)
 deriving instance Eq (Field Direct)
@@ -562,7 +555,7 @@ fieldNameType f = NameType (fieldName f) (fieldSignature f)
 
 instance Binary (Field File) where
   put (Field {..}) = do
-    put fieldAccessFlags 
+    put fieldAccessFlags
     put fieldName
     put fieldSignature
     put fieldAttributesCount
@@ -578,11 +571,11 @@ instance Binary (Field File) where
 
 -- | Class method format
 data Method stage = Method {
-  methodAccessFlags :: AccessFlags stage,
-  methodName :: Link stage B.ByteString,
-  methodSignature :: Link stage MethodSignature,
+  methodAccessFlags     :: AccessFlags stage,
+  methodName            :: Link stage B.ByteString,
+  methodSignature       :: Link stage MethodSignature,
   methodAttributesCount :: Word16,
-  methodAttributes :: Attributes stage }
+  methodAttributes      :: Attributes stage }
 
 deriving instance Eq (Method File)
 deriving instance Eq (Method Direct)
@@ -601,15 +594,14 @@ lookupMethod name cls = look (classMethods cls)
       | otherwise           = look fs
 
 instance Binary (Method File) where
-  put (Method {..}) = do
+  put Method {..} = do
     put methodAccessFlags
     put methodName
     put methodSignature
-    put methodAttributesCount 
+    put methodAttributesCount
     forM_ (attributesList methodAttributes) put
 
   get = do
-    offset <- bytesRead
     af <- get
     ni <- get
     si <- get
@@ -625,19 +617,25 @@ instance Binary (Method File) where
 -- | Any (class/ field/ method/ ...) attribute format.
 -- Some formats specify special formats for @attributeValue@.
 data Attribute = Attribute {
-  attributeName :: Word16,
+  attributeName   :: Word16,
   attributeLength :: Word32,
-  attributeValue :: B.ByteString }
+  attributeValue  :: B.ByteString }
   deriving (Eq, Show)
 
+instance BinaryState.BinaryState Integer Attribute where
+  put a = do
+    let sz = 6 + attributeLength a      -- full size of AttributeInfo structure
+    BinaryState.liftOffset (fromIntegral sz) put a
+
+  get = BinaryState.getZ
+
 instance Binary Attribute where
-  put (Attribute {..}) = do
+  put Attribute {..} = do
     put attributeName
     putWord32be attributeLength
     putLazyByteString attributeValue
 
   get = do
-    offset <- bytesRead
     name <- getWord16be
     len <- getWord32be
     value <- getLazyByteString (fromIntegral len)

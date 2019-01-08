@@ -4,8 +4,8 @@ module Java.Lang where
 
 import Data.String
 
-import JVM.Common ()  -- import instances only
 import JVM.ClassFile
+import JVM.Common    ()
 
 objectClass ::  FieldType
 objectClass = ObjectType object

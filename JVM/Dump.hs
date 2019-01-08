@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module JVM.Dump where
 
-import Control.Monad
-import qualified Data.Map as M
+import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as B
-import Text.Printf
+import qualified Data.Map                   as M
+import           Text.Printf
 
-import JVM.Common ()
-import JVM.ClassFile
-import JVM.Converter
-import JVM.Assembler
+import           JVM.Assembler
+import           JVM.ClassFile
+import           JVM.Common                 ()
+import           JVM.Converter
 
 -- | Dump a class to console.
 dumpClass :: Class Direct -> IO ()

@@ -3,303 +3,303 @@
 -- of constant in the pool.
 module JVM.Builder.Instructions where
 
-import Data.Word
-import qualified Data.ByteString.Lazy as B
-import Codec.Binary.UTF8.String (encodeString)
-import Data.String
+import           Codec.Binary.UTF8.String (encodeString)
+import qualified Data.ByteString.Lazy     as B
+import           Data.String
+import           Data.Word
 
-import JVM.ClassFile
-import JVM.Assembler
-import JVM.Builder.Monad
+import           JVM.Assembler
+import           JVM.Builder.Monad
+import           JVM.ClassFile
 
-nop :: Generator e g => g e ()
+nop :: MonadGenerator m => m ()
 nop = i0 NOP
-aconst_null :: Generator e g => g e ()
+aconst_null :: MonadGenerator m => m ()
 aconst_null = i0 ACONST_NULL
-iconst_m1 :: Generator e g => g e ()
+iconst_m1 :: MonadGenerator m => m ()
 iconst_m1 = i0 ICONST_M1
-iconst_0 :: Generator e g => g e ()
+iconst_0 :: MonadGenerator m => m ()
 iconst_0 = i0 ICONST_0
-iconst_1 :: Generator e g => g e ()
+iconst_1 :: MonadGenerator m => m ()
 iconst_1 = i0 ICONST_1
-iconst_2 :: Generator e g => g e ()
+iconst_2 :: MonadGenerator m => m ()
 iconst_2 = i0 ICONST_2
-iconst_3 :: Generator e g => g e ()
+iconst_3 :: MonadGenerator m => m ()
 iconst_3 = i0 ICONST_3
-iconst_4 :: Generator e g => g e ()
+iconst_4 :: MonadGenerator m => m ()
 iconst_4 = i0 ICONST_4
-iconst_5 :: Generator e g => g e ()
+iconst_5 :: MonadGenerator m => m ()
 iconst_5 = i0 ICONST_5
-lconst_0 :: Generator e g => g e ()
+lconst_0 :: MonadGenerator m => m ()
 lconst_0 = i0 LCONST_0
-lconst_1 :: Generator e g => g e ()
+lconst_1 :: MonadGenerator m => m ()
 lconst_1 = i0 LCONST_1
-fconst_0 :: Generator e g => g e ()
+fconst_0 :: MonadGenerator m => m ()
 fconst_0 = i0 FCONST_0
-fconst_1 :: Generator e g => g e ()
+fconst_1 :: MonadGenerator m => m ()
 fconst_1 = i0 FCONST_1
-fconst_2 :: Generator e g => g e ()
+fconst_2 :: MonadGenerator m => m ()
 fconst_2 = i0 FCONST_2
-dconst_0 :: Generator e g => g e ()
+dconst_0 :: MonadGenerator m => m ()
 dconst_0 = i0 DCONST_0
-dconst_1 :: Generator e g => g e ()
+dconst_1 :: MonadGenerator m => m ()
 dconst_1 = i0 DCONST_1
 
-bipush :: Generator e g => Word8 -> g e ()
+bipush :: MonadGenerator m => Word8 -> m ()
 bipush x = i0 (BIPUSH x)
-sipush :: Generator e g => Word16 -> g e ()
+sipush :: MonadGenerator m => Word16 -> m ()
 sipush x = i0 (SIPUSH x)
 
-ldc1 :: Generator e g => Constant Direct -> g e ()
+ldc1 :: MonadGenerator m => Constant Direct -> m ()
 ldc1 x = i8 LDC1 x
-ldc2 :: Generator e g => Constant Direct -> g e ()
+ldc2 :: MonadGenerator m => Constant Direct -> m ()
 ldc2 x = i1 LDC2 x
-ldc2w :: Generator e g => Constant Direct -> g e ()
+ldc2w :: MonadGenerator m => Constant Direct -> m ()
 ldc2w x = i1 LDC2W x
-iload :: Generator e g => Constant Direct -> g e ()
+iload :: MonadGenerator m => Constant Direct -> m ()
 iload x = i8 ILOAD x
-lload :: Generator e g => Constant Direct -> g e ()
+lload :: MonadGenerator m => Constant Direct -> m ()
 lload x = i8 LLOAD x
-fload :: Generator e g => Constant Direct -> g e ()
+fload :: MonadGenerator m => Constant Direct -> m ()
 fload x = i8 FLOAD x
-dload :: Generator e g => Constant Direct -> g e ()
+dload :: MonadGenerator m => Constant Direct -> m ()
 dload x = i8 DLOAD x
-aload :: Generator e g => Constant Direct -> g e ()
+aload :: MonadGenerator m => Constant Direct -> m ()
 aload x = i8 ALOAD x
 
-iload_ :: Generator e g => IMM -> g e ()
+iload_ :: MonadGenerator m => IMM -> m ()
 iload_ x = i0 (ILOAD_ x)
-lload_ :: Generator e g => IMM -> g e ()
+lload_ :: MonadGenerator m => IMM -> m ()
 lload_ x = i0 (LLOAD_ x)
-fload_ :: Generator e g => IMM -> g e ()
+fload_ :: MonadGenerator m => IMM -> m ()
 fload_ x = i0 (FLOAD_ x)
-dload_ :: Generator e g => IMM -> g e ()
+dload_ :: MonadGenerator m => IMM -> m ()
 dload_ x = i0 (DLOAD_ x)
-aload_ :: Generator e g => IMM -> g e ()
+aload_ :: MonadGenerator m => IMM -> m ()
 aload_ x = i0 (ALOAD_ x)
 
-iaload :: Generator e g => g e ()
+iaload :: MonadGenerator m => m ()
 iaload = i0 IALOAD
-laload :: Generator e g => g e ()
+laload :: MonadGenerator m => m ()
 laload = i0 LALOAD
-faload :: Generator e g => g e ()
+faload :: MonadGenerator m => m ()
 faload = i0 FALOAD
-daload :: Generator e g => g e ()
+daload :: MonadGenerator m => m ()
 daload = i0 DALOAD
-aaload :: Generator e g => g e ()
+aaload :: MonadGenerator m => m ()
 aaload = i0 AALOAD
-caload :: Generator e g => g e ()
+caload :: MonadGenerator m => m ()
 caload = i0 CALOAD
-saload :: Generator e g => g e ()
+saload :: MonadGenerator m => m ()
 saload = i0 SALOAD
 
-istore :: Generator e g => Constant Direct -> g e ()
+istore :: MonadGenerator m => Constant Direct -> m ()
 istore x = i8 ISTORE x
-lstore :: Generator e g => Constant Direct -> g e ()
+lstore :: MonadGenerator m => Constant Direct -> m ()
 lstore x = i8 LSTORE x
-fstore :: Generator e g => Constant Direct -> g e ()
+fstore :: MonadGenerator m => Constant Direct -> m ()
 fstore x = i8 FSTORE x
-dstore :: Generator e g => Constant Direct -> g e ()
+dstore :: MonadGenerator m => Constant Direct -> m ()
 dstore x = i8 DSTORE x
-astore :: Generator e g => Constant Direct -> g e ()
+astore :: MonadGenerator m => Constant Direct -> m ()
 astore x = i8 ASTORE x
 
-istore_ :: Generator e g => Word8 -> g e ()
+istore_ :: MonadGenerator m => Word8 -> m ()
 istore_ x = i0 (ISTORE x)
-lstore_ :: Generator e g => Word8 -> g e ()
+lstore_ :: MonadGenerator m => Word8 -> m ()
 lstore_ x = i0 (LSTORE x)
-fstore_ :: Generator e g => Word8 -> g e ()
+fstore_ :: MonadGenerator m => Word8 -> m ()
 fstore_ x = i0 (FSTORE x)
-dstore_ :: Generator e g => Word8 -> g e ()
+dstore_ :: MonadGenerator m => Word8 -> m ()
 dstore_ x = i0 (DSTORE x)
-astore_ :: Generator e g => Word8 -> g e ()
+astore_ :: MonadGenerator m => Word8 -> m ()
 astore_ x = i0 (ASTORE x)
 
-iastore :: Generator e g => g e ()
+iastore :: MonadGenerator m => m ()
 iastore = i0 IASTORE
-lastore :: Generator e g => g e ()
+lastore :: MonadGenerator m => m ()
 lastore = i0 LASTORE
-fastore :: Generator e g => g e ()
+fastore :: MonadGenerator m => m ()
 fastore = i0 FASTORE
-dastore :: Generator e g => g e ()
+dastore :: MonadGenerator m => m ()
 dastore = i0 DASTORE
-aastore :: Generator e g => g e ()
+aastore :: MonadGenerator m => m ()
 aastore = i0 AASTORE
-bastore :: Generator e g => g e ()
+bastore :: MonadGenerator m => m ()
 bastore = i0 BASTORE
-castore :: Generator e g => g e ()
+castore :: MonadGenerator m => m ()
 castore = i0 CASTORE
-sastore :: Generator e g => g e ()
+sastore :: MonadGenerator m => m ()
 sastore = i0 SASTORE
 
-pop :: Generator e g => g e ()
-pop     = i0 POP    
-pop2 :: Generator e g => g e ()
-pop2    = i0 POP2   
-dup :: Generator e g => g e ()
-dup     = i0 DUP    
-dup_x1 :: Generator e g => g e ()
-dup_x1  = i0 DUP_X1 
-dup_x2 :: Generator e g => g e ()
-dup_x2  = i0 DUP_X2 
-dup2 :: Generator e g => g e ()
-dup2    = i0 DUP2   
-dup2_x1 :: Generator e g => g e ()
+pop :: MonadGenerator m => m ()
+pop     = i0 POP
+pop2 :: MonadGenerator m => m ()
+pop2    = i0 POP2
+dup :: MonadGenerator m => m ()
+dup     = i0 DUP
+dup_x1 :: MonadGenerator m => m ()
+dup_x1  = i0 DUP_X1
+dup_x2 :: MonadGenerator m => m ()
+dup_x2  = i0 DUP_X2
+dup2 :: MonadGenerator m => m ()
+dup2    = i0 DUP2
+dup2_x1 :: MonadGenerator m => m ()
 dup2_x1 = i0 DUP2_X1
-dup2_x2 :: Generator e g => g e ()
+dup2_x2 :: MonadGenerator m => m ()
 dup2_x2 = i0 DUP2_X2
-swap :: Generator e g => g e ()
-swap    = i0 SWAP   
-iadd :: Generator e g => g e ()
-iadd    = i0 IADD   
-ladd :: Generator e g => g e ()
-ladd    = i0 LADD   
-fadd :: Generator e g => g e ()
-fadd    = i0 FADD   
-dadd :: Generator e g => g e ()
-dadd    = i0 DADD   
-isub :: Generator e g => g e ()
-isub    = i0 ISUB   
-lsub :: Generator e g => g e ()
-lsub    = i0 LSUB   
-fsub :: Generator e g => g e ()
-fsub    = i0 FSUB   
-dsub :: Generator e g => g e ()
-dsub    = i0 DSUB   
-imul :: Generator e g => g e ()
-imul    = i0 IMUL   
-lmul :: Generator e g => g e ()
-lmul    = i0 LMUL   
-fmul :: Generator e g => g e ()
-fmul    = i0 FMUL   
-dmul :: Generator e g => g e ()
-dmul    = i0 DMUL   
-idiv :: Generator e g => g e ()
-idiv    = i0 IDIV   
-ldiv :: Generator e g => g e ()
-ldiv    = i0 LDIV   
-fdiv :: Generator e g => g e ()
-fdiv    = i0 FDIV   
-ddiv :: Generator e g => g e ()
-ddiv    = i0 DDIV   
-irem :: Generator e g => g e ()
-irem    = i0 IREM   
-lrem :: Generator e g => g e ()
-lrem    = i0 LREM   
-frem :: Generator e g => g e ()
-frem    = i0 FREM   
-drem :: Generator e g => g e ()
-drem    = i0 DREM   
-ineg :: Generator e g => g e ()
-ineg    = i0 INEG   
-lneg :: Generator e g => g e ()
-lneg    = i0 LNEG   
-fneg :: Generator e g => g e ()
-fneg    = i0 FNEG   
-dneg :: Generator e g => g e ()
-dneg    = i0 DNEG   
-ishl :: Generator e g => g e ()
-ishl    = i0 ISHL   
-lshl :: Generator e g => g e ()
-lshl    = i0 LSHL   
-ishr :: Generator e g => g e ()
-ishr    = i0 ISHR   
-lshr :: Generator e g => g e ()
-lshr    = i0 LSHR   
-iushr :: Generator e g => g e ()
-iushr   = i0 IUSHR  
-lushr :: Generator e g => g e ()
-lushr   = i0 LUSHR  
-iand :: Generator e g => g e ()
-iand    = i0 IAND   
-land :: Generator e g => g e ()
-land    = i0 LAND   
-ior :: Generator e g => g e ()
-ior     = i0 IOR    
-lor :: Generator e g => g e ()
-lor     = i0 LOR    
-ixor :: Generator e g => g e ()
-ixor    = i0 IXOR   
-lxor :: Generator e g => g e ()
-lxor    = i0 LXOR   
+swap :: MonadGenerator m => m ()
+swap    = i0 SWAP
+iadd :: MonadGenerator m => m ()
+iadd    = i0 IADD
+ladd :: MonadGenerator m => m ()
+ladd    = i0 LADD
+fadd :: MonadGenerator m => m ()
+fadd    = i0 FADD
+dadd :: MonadGenerator m => m ()
+dadd    = i0 DADD
+isub :: MonadGenerator m => m ()
+isub    = i0 ISUB
+lsub :: MonadGenerator m => m ()
+lsub    = i0 LSUB
+fsub :: MonadGenerator m => m ()
+fsub    = i0 FSUB
+dsub :: MonadGenerator m => m ()
+dsub    = i0 DSUB
+imul :: MonadGenerator m => m ()
+imul    = i0 IMUL
+lmul :: MonadGenerator m => m ()
+lmul    = i0 LMUL
+fmul :: MonadGenerator m => m ()
+fmul    = i0 FMUL
+dmul :: MonadGenerator m => m ()
+dmul    = i0 DMUL
+idiv :: MonadGenerator m => m ()
+idiv    = i0 IDIV
+ldiv :: MonadGenerator m => m ()
+ldiv    = i0 LDIV
+fdiv :: MonadGenerator m => m ()
+fdiv    = i0 FDIV
+ddiv :: MonadGenerator m => m ()
+ddiv    = i0 DDIV
+irem :: MonadGenerator m => m ()
+irem    = i0 IREM
+lrem :: MonadGenerator m => m ()
+lrem    = i0 LREM
+frem :: MonadGenerator m => m ()
+frem    = i0 FREM
+drem :: MonadGenerator m => m ()
+drem    = i0 DREM
+ineg :: MonadGenerator m => m ()
+ineg    = i0 INEG
+lneg :: MonadGenerator m => m ()
+lneg    = i0 LNEG
+fneg :: MonadGenerator m => m ()
+fneg    = i0 FNEG
+dneg :: MonadGenerator m => m ()
+dneg    = i0 DNEG
+ishl :: MonadGenerator m => m ()
+ishl    = i0 ISHL
+lshl :: MonadGenerator m => m ()
+lshl    = i0 LSHL
+ishr :: MonadGenerator m => m ()
+ishr    = i0 ISHR
+lshr :: MonadGenerator m => m ()
+lshr    = i0 LSHR
+iushr :: MonadGenerator m => m ()
+iushr   = i0 IUSHR
+lushr :: MonadGenerator m => m ()
+lushr   = i0 LUSHR
+iand :: MonadGenerator m => m ()
+iand    = i0 IAND
+land :: MonadGenerator m => m ()
+land    = i0 LAND
+ior :: MonadGenerator m => m ()
+ior     = i0 IOR
+lor :: MonadGenerator m => m ()
+lor     = i0 LOR
+ixor :: MonadGenerator m => m ()
+ixor    = i0 IXOR
+lxor :: MonadGenerator m => m ()
+lxor    = i0 LXOR
 
-iinc :: Generator e g => Word8 -> Word8 -> g e ()
+iinc :: MonadGenerator m => Word8 -> Word8 -> m ()
 iinc x y = i0 (IINC x y)
 
-i2l :: Generator e g => g e ()
-i2l  = i0 I2L 
-i2f :: Generator e g => g e ()
-i2f  = i0 I2F 
-i2d :: Generator e g => g e ()
-i2d  = i0 I2D 
-l2i :: Generator e g => g e ()
-l2i  = i0 L2I 
-l2f :: Generator e g => g e ()
-l2f  = i0 L2F 
-l2d :: Generator e g => g e ()
-l2d  = i0 L2D 
-f2i :: Generator e g => g e ()
-f2i  = i0 F2I 
-f2l :: Generator e g => g e ()
-f2l  = i0 F2L 
-f2d :: Generator e g => g e ()
-f2d  = i0 F2D 
-d2i :: Generator e g => g e ()
-d2i  = i0 D2I 
-d2l :: Generator e g => g e ()
-d2l  = i0 D2L 
-d2f :: Generator e g => g e ()
-d2f  = i0 D2F 
-i2b :: Generator e g => g e ()
-i2b  = i0 I2B 
-i2c :: Generator e g => g e ()
-i2c  = i0 I2C 
-i2s :: Generator e g => g e ()
-i2s  = i0 I2S 
-lcmp :: Generator e g => g e ()
+i2l :: MonadGenerator m => m ()
+i2l  = i0 I2L
+i2f :: MonadGenerator m => m ()
+i2f  = i0 I2F
+i2d :: MonadGenerator m => m ()
+i2d  = i0 I2D
+l2i :: MonadGenerator m => m ()
+l2i  = i0 L2I
+l2f :: MonadGenerator m => m ()
+l2f  = i0 L2F
+l2d :: MonadGenerator m => m ()
+l2d  = i0 L2D
+f2i :: MonadGenerator m => m ()
+f2i  = i0 F2I
+f2l :: MonadGenerator m => m ()
+f2l  = i0 F2L
+f2d :: MonadGenerator m => m ()
+f2d  = i0 F2D
+d2i :: MonadGenerator m => m ()
+d2i  = i0 D2I
+d2l :: MonadGenerator m => m ()
+d2l  = i0 D2L
+d2f :: MonadGenerator m => m ()
+d2f  = i0 D2F
+i2b :: MonadGenerator m => m ()
+i2b  = i0 I2B
+i2c :: MonadGenerator m => m ()
+i2c  = i0 I2C
+i2s :: MonadGenerator m => m ()
+i2s  = i0 I2S
+lcmp :: MonadGenerator m => m ()
 lcmp = i0 LCMP
 
 -- | Wide instruction
-wide :: Generator e g => (Word8 -> Instruction) -> Constant Direct -> g e ()
+wide :: MonadGenerator m => (Word8 -> Instruction) -> Constant Direct -> m ()
 wide fn c = do
   ix <- addToPool c
   let ix0 = fromIntegral (ix `div` 0x100) :: Word8
       ix1 = fromIntegral (ix `mod` 0x100) :: Word8
   i0 (WIDE ix0 $ fn ix1)
 
-new :: Generator e g => B.ByteString -> g e ()
+new :: MonadGenerator m => B.ByteString -> m ()
 new cls =
   i1 NEW (CClass cls)
 
-newArray :: Generator e g => ArrayType -> g e ()
+newArray :: MonadGenerator m => ArrayType -> m ()
 newArray t =
   i0 (NEWARRAY $ atype2byte t)
 
-allocNewArray :: Generator e g => B.ByteString -> g e ()
+allocNewArray :: MonadGenerator m => B.ByteString -> m ()
 allocNewArray cls =
   i1 ANEWARRAY (CClass cls)
 
-invokeVirtual :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
+invokeVirtual :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
 invokeVirtual cls sig =
   i1 INVOKEVIRTUAL (CMethod cls sig)
 
-invokeStatic :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
+invokeStatic :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
 invokeStatic cls sig =
   i1 INVOKESTATIC (CMethod cls sig)
 
-invokeSpecial :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
+invokeSpecial :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
 invokeSpecial cls sig =
   i1 INVOKESPECIAL (CMethod cls sig)
 
-getStaticField :: Generator e g => B.ByteString -> NameType (Field Direct) -> g e ()
+getStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
 
-loadString :: Generator e g => String -> g e ()
+loadString :: MonadGenerator m => String -> m ()
 loadString str =
   i8 LDC1 (CString $ fromString $ encodeString $ str)
 
-allocArray :: Generator e g => B.ByteString -> g e ()
+allocArray :: MonadGenerator m => B.ByteString -> m ()
 allocArray cls =
   i1 ANEWARRAY (CClass cls)
 

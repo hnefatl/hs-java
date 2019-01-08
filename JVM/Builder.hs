@@ -7,8 +7,8 @@ module JVM.Builder
 
 import JVM.ClassFile
 
-import JVM.Builder.Monad
 import JVM.Builder.Instructions
+import JVM.Builder.Monad
 
 arrayOf :: FieldType -> FieldType
 arrayOf t = Array Nothing t

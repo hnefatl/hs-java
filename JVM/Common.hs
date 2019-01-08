@@ -1,4 +1,7 @@
-{-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | This module declares some commonly used functions and instances.
 module JVM.Common
   (toCharList,
@@ -9,17 +12,17 @@ module JVM.Common
   byteString
   ) where
 
-import Data.Binary
-import Data.Binary.Put
+import           Data.Binary
+import           Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
-import qualified Data.Map as M
 import Data.Default
-import Data.List
+import           Data.List
+import qualified Data.Map             as M
 
-import JVM.ClassFile
+import           JVM.ClassFile
 
 instance Default B.ByteString where
-  def = B.empty
+    def = mempty
 
 toCharList :: B.ByteString -> [Int]
 toCharList bstr = map fromIntegral $ B.unpack bstr
@@ -40,6 +43,5 @@ byteString x = runPut (put x)
 mapFindIndex :: (Num k) => (v -> Bool) -> M.Map k v -> Maybe k
 mapFindIndex check m =
   case find (check . snd) (M.assocs m) of
-    Nothing -> Nothing
+    Nothing    -> Nothing
     Just (k,_) -> Just k
-

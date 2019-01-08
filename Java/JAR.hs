@@ -1,19 +1,19 @@
 
-module Java.JAR 
+module Java.JAR
   (readManifest,
    readJAR,
    readMainClass,
    addJAR
   ) where
 
-import Control.Monad.Trans (liftIO)
-import qualified Control.Monad.State as St
-import Data.List
 import qualified Codec.Archive.LibZip as Zip
+import qualified Control.Monad.State  as St
+import           Control.Monad.Trans  (liftIO)
+import           Data.List
 
-import Java.ClassPath
-import Java.JAR.Archive
-import Java.META
+import           Java.ClassPath
+import           Java.JAR.Archive
+import           Java.META
 
 readManifest :: Zip.Archive (Maybe Manifest)
 readManifest = do
@@ -23,7 +23,7 @@ readManifest = do
     then do
          content <- Zip.fileContents [] manifestPath
          case parseMeta content of
-           Left e -> fail $ show e
+           Left e     -> fail $ show e
            Right meta -> return $ Just (loadSpec meta)
     else return Nothing
 

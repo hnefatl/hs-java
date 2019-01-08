@@ -1,16 +1,16 @@
 -- | This module defines functions to read Java JAR files.
 module Java.JAR.Archive where
 
-import qualified Codec.Archive.LibZip as Zip
-import Data.Binary
-import Data.List
-import qualified Data.ByteString.Lazy as B
-import System.FilePath
+import qualified Codec.Archive.LibZip  as Zip
+import           Data.Binary
+import qualified Data.ByteString.Lazy  as B
+import           Data.List
+import           System.FilePath
 
-import Java.ClassPath.Types
-import Java.ClassPath.Common
-import JVM.ClassFile
-import JVM.Converter
+import           Java.ClassPath.Common
+import           Java.ClassPath.Types
+import           JVM.ClassFile
+import           JVM.Converter
 
 readJAREntry :: (Enum a) => FilePath -> String -> IO (Maybe [a])
 readJAREntry jarfile path = do
@@ -47,7 +47,7 @@ checkClassTree forest = mapFMF check forest
 
 zipJAR :: [Tree (FilePath, Class Direct)] -> Zip.Archive ()
 zipJAR forest = do
-    mapFM go forest
+    _ <- mapFM go forest
     return ()
   where
     go (path, cls) = Zip.addFile path =<< Zip.sourceBuffer (B.unpack $ encodeClass cls)
