@@ -3,7 +3,7 @@ module Java.META.Parser
   (parseMeta,
    parseMetaFile) where
 
-import Control.Monad (void)
+import           Control.Monad      (void)
 import qualified Data.Map           as M
 import           Text.Parsec
 import           Text.Parsec.String

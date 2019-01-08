@@ -51,7 +51,7 @@ buildTree strs =
 
       eq [] []       = True
       eq (x:_) (y:_) = x == y
-      eq _ _ = False
+      eq _ _         = False
 
   in  build ls
 

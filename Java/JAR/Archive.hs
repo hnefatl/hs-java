@@ -1,21 +1,21 @@
 -- | This module defines functions to read Java JAR files.
 module Java.JAR.Archive where
 
-import qualified Codec.Archive.Zip as Zip
-import Control.Exception
+import qualified Codec.Archive.Zip     as Zip
+import           Control.Exception
 import           Data.Binary
+import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as B
-import qualified Data.ByteString as BS
+import           Data.Foldable
 import           Data.List
 import           System.FilePath
-import Data.Foldable
 
 import           Java.ClassPath.Common
 import           Java.ClassPath.Types
 import           JVM.ClassFile
 import           JVM.Converter
 
-import qualified Data.Map as M
+import qualified Data.Map              as M
 
 readJAREntry :: FilePath -> String -> IO (Maybe BS.ByteString)
 readJAREntry jarfile path = do
@@ -64,5 +64,5 @@ zipJAR trees = traverse_ addEntry (trees >>= treeToEntries mempty)
       pth <- Zip.mkEntrySelector f
       let cont = BS.pack $ B.unpack a
       Zip.addEntry Zip.Store cont pth
-    treeToEntries folder (File (fileName, cls)) = [(folder </> fileName, encodeClass cls)]
+    treeToEntries folder (File (fileName, cls))          = [(folder </> fileName, encodeClass cls)]
     treeToEntries folder (Directory folderName contents) = treeToEntries (folder </> folderName) =<< contents

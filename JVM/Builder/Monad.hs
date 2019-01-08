@@ -32,13 +32,13 @@ module JVM.Builder.Monad (
   ) where
 
 import           Control.Monad.Except
-import           Control.Monad.Reader
 import           Control.Monad.Identity
-import           Control.Monad.State      as St
-import           Data.Binary hiding (get, put)
-import qualified Data.ByteString.Lazy     as B
-import qualified Data.Map                 as M
-import qualified Data.Set                 as S
+import           Control.Monad.Reader
+import           Control.Monad.State    as St
+import           Data.Binary            hiding (get, put)
+import qualified Data.ByteString.Lazy   as B
+import qualified Data.Map               as M
+import qualified Data.Set               as S
 import           Prelude
 
 import           Java.ClassPath
@@ -120,7 +120,7 @@ execGeneratorT cp (GeneratorT inner) = do
     (x, s) <- lift $ runStateT (runExceptT inner) (emptyGState { classPath = cp })
     case x of
         Left err -> throwError err
-        Right _ -> return s
+        Right _  -> return s
 
 instance MonadError GeneratorException m => MonadError GeneratorException (GeneratorT m) where
     throwError = lift . throwError
@@ -356,7 +356,7 @@ generateIO :: [Tree CPEntry]
 generateIO cp name gen = do
     x <- runExceptT $ generateT cp name gen
     case x of
-        Left err -> error (show err)
+        Left err  -> error (show err)
         Right res -> return res
 
 -- | Generate a class

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+stack exec stylish-haskell -- --inplace Java/**/*.hs JVM/**/*.hs
