@@ -1,3 +1,4 @@
+{-# Language FlexibleContexts #-}
 
 module Java.ClassPath
   (module Java.ClassPath.Types,
@@ -7,16 +8,16 @@ module Java.ClassPath
    getEntry
   ) where
 
-import qualified Control.Monad.State as St
-import Control.Monad.Trans (liftIO)
-import System.FilePath.Glob hiding (glob)
-import Data.String.Utils (split)
+import qualified Control.Monad.State   as St
+import           Control.Monad.Trans   (liftIO)
+import           Data.String.Utils     (split)
+import           System.FilePath.Glob  hiding (glob)
 
-import JVM.ClassFile
-import JVM.Converter
-import Java.ClassPath.Types
-import Java.ClassPath.Common
-import Java.JAR.Archive
+import           Java.ClassPath.Common
+import           Java.ClassPath.Types
+import           Java.JAR.Archive
+import           JVM.ClassFile
+import           JVM.Converter
 
 -- | For given list of glob masks, return list of matching files
 glob :: FilePath -> [FilePath] -> IO [FilePath]
@@ -84,20 +85,20 @@ getEntry cp path = get cp (split "/" path)
     get (Directory dir forest: es) (p:ps)
       | dir == p  = get forest ps
       | otherwise = get es (p:ps)
-    get (File i@(NotLoaded f): es) [p]
+    get (File (NotLoaded f): es) [p]
       | (p ++ ".class" == f) = do
                                cls <- parseClassFile (path ++ ".class")
                                return $ Just (Loaded path cls)
       | otherwise = get es [p]
-    get (File i@(NotLoadedJAR jarfile r): es) [p]
+    get (File (NotLoadedJAR jarfile r): es) [p]
       | (p ++ ".class" == r) = do
                                cls <- readFromJAR jarfile (path ++ ".class")
                                return $ Just (LoadedJAR jarfile cls)
       | otherwise = get es [p]
-    get (File i@(Loaded f c):es) [p]
+    get (File i@(Loaded f _):es) [p]
       | f == p = return (Just i)
       | otherwise = get es [p]
-    get (File i@(LoadedJAR f c):es) [p]
+    get (File i@(LoadedJAR _ c):es) [p]
       | toString (thisClass c) == path = return (Just i)
       | otherwise = get es [p]
     get x y = fail $ "Unexpected arguments for ClassPath.getEntry.get: " ++ show x ++ ", " ++ show y

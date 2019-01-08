@@ -1,6 +1,6 @@
 module Java.META.Spec where
 
-import Data.Char (toLower)
+import Data.Char       (toLower)
 
 import Java.META.Types
 
@@ -19,11 +19,11 @@ loadSpec (s:ss) =
   in  foldl loadOtherSection x ss
 
 lookupList :: String -> Maybe String -> [(String, String)]
-lookupList _ Nothing = []
+lookupList _ Nothing       = []
 lookupList name (Just val) = [(name, val)]
 
 bool2string :: Bool -> String
-bool2string True = "true"
+bool2string True  = "true"
 bool2string False = "false"
 
 string2bool :: String -> Bool

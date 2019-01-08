@@ -1,6 +1,11 @@
-{-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances,
-   FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings,
-   TypeSynonymInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 -- | This module declares data type for JVM instructions, and BinaryState
 -- instances to read/write them.
 module JVM.Assembler
@@ -17,14 +22,13 @@ module JVM.Assembler
   )
   where
 
-import Control.Monad
-import Data.Ix (inRange)
-import Data.Word
-import qualified Data.Binary as Binary
+import           Control.Monad
 import qualified Data.ByteString.Lazy as B
+import           Data.Ix              (inRange)
+import           Data.Word
 
-import Data.BinaryState
-import JVM.ClassFile
+import           Data.BinaryState
+import           JVM.ClassFile
 
 
 -- | Immediate constant. Corresponding value will be added to base opcode.
@@ -47,26 +51,26 @@ data CMP =
 
 -- | Format of Code method attribute.
 data Code = Code {
-    codeStackSize :: Word16,
-    codeMaxLocals :: Word16,
-    codeLength :: Word32,
+    codeStackSize    :: Word16,
+    codeMaxLocals    :: Word16,
+    codeLength       :: Word32,
     codeInstructions :: [Instruction],
-    codeExceptionsN :: Word16,
-    codeExceptions :: [CodeException],
-    codeAttrsN :: Word16,
-    codeAttributes :: Attributes File }
+    codeExceptionsN  :: Word16,
+    codeExceptions   :: [CodeException],
+    codeAttrsN       :: Word16,
+    codeAttributes   :: Attributes File }
   deriving (Eq, Show)
 
 -- | Exception descriptor
 data CodeException = CodeException {
-    eStartPC :: Word16,
-    eEndPC :: Word16,
+    eStartPC   :: Word16,
+    eEndPC     :: Word16,
     eHandlerPC :: Word16,
     eCatchType :: Word16 }
   deriving (Eq, Show)
 
 instance BinaryState Integer CodeException where
-  put (CodeException {..}) = do
+  put CodeException {..} = do
     put eStartPC
     put eEndPC
     put eHandlerPC
@@ -74,15 +78,8 @@ instance BinaryState Integer CodeException where
 
   get = CodeException <$> get <*> get <*> get <*> get
 
-instance BinaryState Integer Attribute where
-  put a = do
-    let sz = 6 + attributeLength a      -- full size of AttributeInfo structure
-    liftOffset (fromIntegral sz) Binary.put a
-
-  get = getZ
-
 instance BinaryState Integer Code where
-  put (Code {..}) = do
+  put Code {..} = do
     put codeStackSize
     put codeMaxLocals
     put codeLength
@@ -304,14 +301,14 @@ putImm :: Word8                -- ^ Base opcode
 putImm base i = putByte $ base + (fromIntegral $ fromEnum i)
 
 atype2byte :: ArrayType -> Word8
-atype2byte T_BOOLEAN  = 4
-atype2byte T_CHAR     = 5
-atype2byte T_FLOAT    = 6
-atype2byte T_DOUBLE   = 7
-atype2byte T_BYTE     = 8
-atype2byte T_SHORT    = 9
-atype2byte T_INT      = 10
-atype2byte T_LONG     = 11
+atype2byte T_BOOLEAN = 4
+atype2byte T_CHAR    = 5
+atype2byte T_FLOAT   = 6
+atype2byte T_DOUBLE  = 7
+atype2byte T_BYTE    = 8
+atype2byte T_SHORT   = 9
+atype2byte T_INT     = 10
+atype2byte T_LONG    = 11
 
 byte2atype :: Word8 -> GetState s ArrayType
 byte2atype 4  = return T_BOOLEAN
@@ -484,11 +481,11 @@ instance BinaryState Integer Instruction where
   put (GOTO x)        = put1 167 x
   put (JSR x)         = put1 168 x
   put  RET            = putByte 169
-  put (TABLESWITCH _ def low high offs) = do
+  put (TABLESWITCH _ _ low high offs) = do
                                    putByte 170
                                    offset <- getOffset
                                    let pads = padding offset
-                                   replicateM pads (putByte 0)
+                                   replicateM_ pads (putByte 0)
                                    put low
                                    put high
                                    forM_ offs put
@@ -496,7 +493,7 @@ instance BinaryState Integer Instruction where
                                    putByte 171
                                    offset <- getOffset
                                    let pads = padding offset
-                                   replicateM pads (putByte 0)
+                                   replicateM_ pads (putByte 0)
                                    put def
                                    put n
                                    forM_ pairs put
@@ -719,11 +716,11 @@ encodeInstructions code =
 
 -- | Decode Java method
 decodeMethod :: B.ByteString -> Code
-decodeMethod str = decodeS (0 :: Integer) str
+decodeMethod = decodeS (0 :: Integer)
 
 -- | Encode Java method
 encodeMethod :: Code -> B.ByteString
-encodeMethod code = encodeS (0 :: Integer) code
+encodeMethod = encodeS (0 :: Integer)
 
 -- | Calculate padding for current bytecode offset (cf. TABLESWITCH and LOOKUPSWITCH)
 padding :: (Integral a, Integral b) => a -> b

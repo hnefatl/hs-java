@@ -11,9 +11,9 @@ import Control.Monad.Trans (liftIO)
 import qualified Control.Monad.State as St
 import Data.List
 
-import Java.ClassPath
-import Java.JAR.Archive
-import Java.META
+import           Java.ClassPath
+import           Java.JAR.Archive
+import           Java.META
 
 import qualified Data.ByteString.Char8 as B
 

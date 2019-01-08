@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts, Rank2Types #-}
 
+<<<<<<< HEAD
 -- import Control.Exception
+=======
+import Control.Monad.Catch
+>>>>>>> mtl
 import qualified Data.ByteString.Lazy as B
 
 import JVM.ClassFile
@@ -13,6 +17,7 @@ import Java.ClassPath
 import qualified Java.Lang
 import qualified Java.IO
 
+<<<<<<< HEAD
 import Control.Exception.Safe.Checked
 import Control.Monad.State
 
@@ -22,6 +27,9 @@ test ::(Throws ENotFound,
         MonadThrow m,
         MonadIO m,
         MonadState GState m) => m ()
+=======
+test :: GenerateIO ()
+>>>>>>> mtl
 test = do
   withClassPath $ do
       -- Add current directory (with Hello.class) to ClassPath

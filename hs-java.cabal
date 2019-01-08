@@ -42,14 +42,9 @@ library
                    Java.META.Spec
                    Java.META.Parser
 
-  Build-Depends:  base >= 3 && <= 5, containers, binary,
-                  mtl, directory, filepath, utf8-string, array,
-                  bytestring, data-binary-ieee754, binary-state,
-                  exceptions, safe-exceptions-checked,
-                  data-default >= 0.5.0,
-                  MissingH, Glob, parsec >= 3 && <4, zip
+  Build-Depends:  base >= 3 && <= 5, containers, binary, mtl, directory, filepath, utf8-string, array, bytestring, data-binary-ieee754, binary-state, data-default >= 0.5.0, MissingH, zip, Glob, parsec >= 3 && <4
 
-  ghc-options: -fwarn-unused-imports
+  ghc-options: -Wall
 
 Source-repository head
   type:     git

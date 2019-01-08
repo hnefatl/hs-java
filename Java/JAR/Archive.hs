@@ -2,26 +2,25 @@
 module Java.JAR.Archive where
 
 import qualified Codec.Archive.Zip as Zip
-import Data.Binary
-import Data.List
-import qualified Data.ByteString.Lazy as B
+import Control.Exception
+import           Data.Binary
+import qualified Data.ByteString.Lazy  as B
 import qualified Data.ByteString as BS
-import System.FilePath
+import           Data.List
+import           System.FilePath
+import Data.Foldable
 
-import Java.ClassPath.Types
-import Java.ClassPath.Common
-import JVM.ClassFile
-import JVM.Converter
+import           Java.ClassPath.Common
+import           Java.ClassPath.Types
+import           JVM.ClassFile
+import           JVM.Converter
 
-import qualified Control.Monad.Catch as C
 import qualified Data.Map as M
-
-import Data.Functor (void)
 
 readJAREntry :: FilePath -> String -> IO (Maybe BS.ByteString)
 readJAREntry jarfile path = do
   pth <- Zip.mkEntrySelector path
-  C.catch (Just `fmap` (Zip.withArchive jarfile $ Zip.getEntry pth)) handleZipException
+  catch (Just <$> Zip.withArchive jarfile (Zip.getEntry pth)) handleZipException
   where
     handleZipException :: Zip.ZipException -> IO (Maybe BS.ByteString)
     handleZipException _ = return Nothing
@@ -46,7 +45,7 @@ readFromJAR jarfile path = do
   return $ classFile2Direct (decode bstr)
 
 checkClassTree :: [Tree CPEntry] -> IO [Tree (FilePath, Class Direct)]
-checkClassTree forest = mapFMF check forest
+checkClassTree = mapFMF check
   where
     check _ (NotLoaded path) = do
        cls <- parseClassFile path
@@ -58,22 +57,12 @@ checkClassTree forest = mapFMF check forest
     check a (LoadedJAR _ cls) =
        return (a </> show (thisClass cls), cls)
 
--- zipJAR :: [Tree (FilePath, Class Direct)] -> Zip.ZipArchive ()
--- zipJAR forest = do
---     mapFM go forest
---     return ()
---   where
---     go (path, cls) = Zip.addFile path =<< Zip.sourceBuffer (B.unpack $ encodeClass cls)
-
 zipJAR :: [Tree (FilePath, Class Direct)] -> Zip.ZipArchive ()
-zipJAR trees =
-  void $ traverse addEntry (trees >>= (treeToEntries mempty))
+zipJAR trees = traverse_ addEntry (trees >>= treeToEntries mempty)
   where
     addEntry (f, a) = do
       pth <- Zip.mkEntrySelector f
       let cont = BS.pack $ B.unpack a
       Zip.addEntry Zip.Store cont pth
-
     treeToEntries folder (File (fileName, cls)) = [(folder </> fileName, encodeClass cls)]
-    treeToEntries folder (Directory folderName contents) = (treeToEntries (folder </> folderName)) =<< contents
-
+    treeToEntries folder (Directory folderName contents) = treeToEntries (folder </> folderName) =<< contents

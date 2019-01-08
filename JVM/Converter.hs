@@ -1,4 +1,9 @@
-{-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | Functions to convert from low-level .class format representation and
 -- high-level Java classes, methods etc representation
 module JVM.Converter
@@ -11,21 +16,19 @@ module JVM.Converter
   )
   where
 
-import Control.Exception (throw)
-import Data.List
-import Data.Word
-import Data.Bits
-import Data.Binary
-import Data.Default () -- import instances only
-import qualified Data.ByteString.Lazy as B
+import           Data.Binary
+import           Data.Bits
+import qualified Data.ByteString.Lazy       as B
 import qualified Data.ByteString.Lazy.Char8 ()
-import qualified Data.Set as S
-import qualified Data.Map as M
+import           Data.Default               ()
+import           Data.List
+import qualified Data.Map                   as M
+import qualified Data.Set                   as S
+import Control.Monad.Except (MonadError, throwError)
 
-import JVM.ClassFile
-import JVM.Common
-import JVM.Exceptions
-import Control.Monad.Except
+import           JVM.ClassFile
+import           JVM.Common
+import           JVM.Exceptions
 
 -- | Parse .class file data
 parseClass :: B.ByteString -> Class Direct
@@ -35,11 +38,11 @@ parseClass bstr = classFile2Direct $ decode bstr
 parseClassFile :: FilePath -> IO (Class Direct)
 parseClassFile path = classFile2Direct `fmap` decodeFile path
 
-encodeClass :: (Class Direct) -> B.ByteString
+encodeClass :: Class Direct -> B.ByteString
 encodeClass cls = encode $ classDirect2File cls
 
 classFile2Direct :: Class File -> Class Direct
-classFile2Direct (Class {..}) =
+classFile2Direct Class {..} =
   let pool = poolFile2Direct constsPool
       superName = className $ pool ! superClass
       d = defaultClass :: Class Direct
@@ -59,7 +62,7 @@ classFile2Direct (Class {..}) =
       classAttributes = attributesFile2Direct pool classAttributes }
 
 classDirect2File :: Class Direct -> Class File
-classDirect2File (Class {..}) =
+classDirect2File Class {..} =
   let d = defaultClass :: Class File
   in d {
     constsPoolSize = fromIntegral (M.size poolInfo + 1),
@@ -104,35 +107,36 @@ poolDirect2File pool = result
     cpInfo (CUnicode s) = CUnicode s
 
 -- | Find index of given string in the list of constants
-poolIndex :: Pool File -> B.ByteString -> Except NoItemInPool Word16
+poolIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
 poolIndex list name = case mapFindIndex test list of
-                        Nothing -> throw (NoItemInPool name)
-                        Just i ->  return $ fromIntegral i
+                        Nothing -> throwError (NoItemInPool name)
+                        Just i  ->  return $ fromIntegral i
   where
     test (CUTF8 s)    | s == name = True
     test (CUnicode s) | s == name = True
-    test _                                  = False
+    test _            = False
 
 -- | Find index of given string in the list of constants
-poolClassIndex :: Pool File -> B.ByteString -> Except NoItemInPool Word16
+poolClassIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
 poolClassIndex list name = case mapFindIndex checkString list of
-                        Nothing -> throw (NoItemInPool name)
+                        Nothing -> throwError (NoItemInPool name)
                         Just i ->  case mapFindIndex (checkClass $ fromIntegral i) list of
-                                     Nothing -> throw (NoItemInPool i)
+                                     Nothing -> throwError (NoItemInPool i)
                                      Just j  -> return $ fromIntegral j
   where
     checkString (CUTF8 s)    | s == name = True
     checkString (CUnicode s) | s == name = True
-    checkString _                                  = False
+    checkString _            = False
 
     checkClass i (CClass x) | i == x = True
-    checkClass _ _                           = False
+    checkClass _ _          = False
 
+poolNTIndex :: (MonadError GeneratorException m, HasSignature a) => Pool File -> NameType a -> m Word16
 poolNTIndex list x@(NameType n t) = do
     ni <- poolIndex list n
     ti <- poolIndex list (byteString t)
     case mapFindIndex (check ni ti) list of
-      Nothing -> throw (NoItemInPool x)
+      Nothing -> throwError (NoItemInPool x)
       Just i  -> return $ fromIntegral i
   where
     check ni ti (CNameType n' t')
@@ -173,17 +177,15 @@ poolFile2Direct ps = pool
     pool :: Pool Direct
     pool = M.map convert ps
 
-    n = fromIntegral $ M.size ps
-
     convertNameType :: (HasSignature a) => Word16 -> NameType a
     convertNameType i =
       case pool ! i of
         CNameType n s -> NameType n (decode s)
-        x -> error $ "Unexpected: " ++ show i
+        _             -> error $ "Unexpected: " ++ show i
 
     convert (CClass i) = case pool ! i of
                           CUTF8 name -> CClass name
-                          x -> error $ "Unexpected class name: " ++ show x ++ " at " ++ show i
+                          x          -> error $ "Unexpected class name: " ++ show x ++ " at " ++ show i
     convert (CField i j) = CField (className $ pool ! i) (convertNameType j)
     convert (CMethod i j) = CMethod (className $ pool ! i) (convertNameType j)
     convert (CIfaceMethod i j) = CIfaceMethod (className $ pool ! i) (convertNameType j)
