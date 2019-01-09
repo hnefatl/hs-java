@@ -15,6 +15,7 @@ data GeneratorException where
     ClassNotFound :: String -> GeneratorException
     FieldNotFound :: String -> B.ByteString -> GeneratorException
     MethodNotFound :: String -> B.ByteString -> GeneratorException
+    OtherError :: String -> GeneratorException
 
 instance Show GeneratorException where
   show (NoItemInPool s) = "Internal error: no such item in pool: <" <> show s <> ">"
@@ -24,6 +25,7 @@ instance Show GeneratorException where
   show (ClassNotFound p)    = "No such class in ClassPath: " <> p
   show (FieldNotFound c f)  = "No such field in class " <> c <> ": " <> toString f
   show (MethodNotFound c m) = "No such method in class " <> c <> ": " <> toString m
+  show (OtherError e) = show e
 
 force :: Show e => String -> Except e a -> a
 force s x =
