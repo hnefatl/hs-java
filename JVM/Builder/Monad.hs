@@ -34,11 +34,12 @@ module JVM.Builder.Monad (
 import           Control.Monad.Except
 import           Control.Monad.Identity
 import           Control.Monad.Reader
-import           Control.Monad.State    as St
-import           Data.Binary            hiding (get, put)
-import qualified Data.ByteString.Lazy   as B
-import qualified Data.Map               as M
-import qualified Data.Set               as S
+import           Control.Monad.State        as St
+import qualified Control.Monad.State.Strict as StS
+import           Data.Binary                hiding (get, put)
+import qualified Data.ByteString.Lazy       as B
+import qualified Data.Map                   as M
+import qualified Data.Set                   as S
 import           Prelude
 
 import           Java.ClassPath
@@ -86,6 +87,10 @@ instance MonadGenerator m => MonadGenerator (ReaderT e m) where
     putGState = lift . putGState
     throwG = lift . throwG
 instance MonadGenerator m => MonadGenerator (StateT e m) where
+    getGState = lift getGState
+    putGState = lift . putGState
+    throwG = lift . throwG
+instance MonadGenerator m => MonadGenerator (StS.StateT e m) where
     getGState = lift getGState
     putGState = lift . putGState
     throwG = lift . throwG
