@@ -28,6 +28,7 @@ module JVM.Builder.Monad (
     withClassPath,
     getClassField, getClassMethod,
     generate, generateT, generateIO,
+    encodedCodeLength,
     generateCodeLength
   ) where
 
