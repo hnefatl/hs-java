@@ -258,6 +258,7 @@ data Instruction =
   | INVOKESPECIAL Word16   -- ^ 183
   | INVOKESTATIC Word16    -- ^ 184
   | INVOKEINTERFACE Word16 Word8 -- ^ 185
+  | INVOKEDYNAMIC Word16   -- ^ 186
   | NEW Word16             -- ^ 187
   | NEWARRAY Word8         -- ^ 188, see @ArrayType@
   | ANEWARRAY Word16       -- ^ 189
@@ -511,6 +512,7 @@ instance BinaryState Integer Instruction where
   put (INVOKESPECIAL x)     = put1 183 x
   put (INVOKESTATIC x)      = put1 184 x
   put (INVOKEINTERFACE x c) = put2 185 x c >> putByte 0
+  put (INVOKEDYNAMIC x) = put1 186 x
   put (NEW x)         = put1 187 x
   put (NEWARRAY x)    = put1 188 x
   put (ANEWARRAY x)   = put1 189 x
@@ -679,6 +681,7 @@ instance BinaryState Integer Instruction where
       183 -> INVOKESPECIAL <$> get
       184 -> INVOKESTATIC <$> get
       185 -> (INVOKEINTERFACE <$> get <*> get) <* skip 1
+      186 -> INVOKEDYNAMIC <$> get
       187 -> NEW <$> get
       188 -> NEWARRAY <$> get
       189 -> ANEWARRAY <$> get

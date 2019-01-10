@@ -292,6 +292,10 @@ invokeSpecial :: MonadGenerator m => B.ByteString -> NameType (Method Direct) ->
 invokeSpecial cls sig =
   i1 INVOKESPECIAL (CMethod cls sig)
 
+invokeDynamic :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
+invokeDynamic cls sig =
+  i1 INVOKEDYNAMIC (CMethod cls sig)
+
 getStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
