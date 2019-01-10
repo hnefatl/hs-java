@@ -21,6 +21,7 @@ module JVM.Builder.Monad (
     MonadGenerator(..),
     GeneratorT(..),
     Generator, GeneratorIO,
+    execGeneratorT,
     addToPool,
     i0, i1, i8,
     newMethod,
