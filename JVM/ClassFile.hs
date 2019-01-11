@@ -175,6 +175,7 @@ instance HasSignature a => Binary (NameType a) where
   get = NameType <$> get <*> get
 
 -- | Constant pool item
+-- Follows https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.4
 data Constant stage =
     CClass (Link stage B.ByteString)
   | CField (Link stage B.ByteString) (Link stage (NameType (Field stage)))
@@ -188,6 +189,9 @@ data Constant stage =
   | CNameType (Link stage B.ByteString) (Link stage B.ByteString)
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
+  | CMethodHandle Word8 (Link stage B.ByteString)
+  | CMethodType (Link stage B.ByteString)
+  | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
 
 -- | Name of the CClass. Error on any other constant.
 className ::  Constant Direct -> B.ByteString
@@ -195,18 +199,21 @@ className (CClass s) = s
 className x          = error $ "Not a class: " ++ show x
 
 instance Show (Constant Direct) where
-  show (CClass name)         = "class " ++ toString name
-  show (CField cls nt)       = "field " ++ toString cls ++ "." ++ show nt
-  show (CMethod cls nt)      = "method " ++ toString cls ++ "." ++ show nt
-  show (CIfaceMethod cls nt) = "interface method " ++ toString cls ++ "." ++ show nt
+  show (CClass name)         = "Class " ++ toString name
+  show (CField cls nt)       = "Fieldref " ++ toString cls ++ "." ++ show nt
+  show (CMethod cls nt)      = "Methodref " ++ toString cls ++ "." ++ show nt
+  show (CIfaceMethod cls nt) = "InterfaceMethodref " ++ toString cls ++ "." ++ show nt
   show (CString s)           = "String \"" ++ toString s ++ "\""
-  show (CInteger x)          = show x
-  show (CFloat x)            = show x
-  show (CLong x)             = show x
-  show (CDouble x)           = show x
-  show (CNameType name tp)   = toString name ++ ": " ++ toString tp
+  show (CInteger x)          = "Integer" ++ show x
+  show (CFloat x)            = "Float " ++ show x
+  show (CLong x)             = "Long " ++ show x
+  show (CDouble x)           = "Double " ++ show x
+  show (CNameType name tp)   = "NameAndType " ++ toString name ++ ":" ++ toString tp
   show (CUTF8 s)             = "UTF8 \"" ++ toString s ++ "\""
   show (CUnicode s)          = "Unicode \"" ++ toString s ++ "\""
+  show (CMethodHandle t b)   = "MethodHandle " ++ show t ++ toString b
+  show (CMethodType b)       = "MethodType " ++ toString b
+  show (CInvokeDynamic t m)  = "InvokeDynamic " ++ show t ++ show m
 
 -- | Constant pool
 type Pool stage = M.Map Word16 (Constant stage)
@@ -477,14 +484,11 @@ putPool pool = do
     putC (CLong x)    = putWord8 5 >> put x
     putC (CDouble x)  = putWord8 6 >> putFloat64be x
     putC (CNameType i j) = putWord8 12 >> put i >> put j
-    putC (CUTF8 bs) = do
-                     putWord8 1
-                     put (fromIntegral (B.length bs) :: Word16)
-                     putLazyByteString bs
-    putC (CUnicode bs) = do
-                     putWord8 2
-                     put (fromIntegral (B.length bs) :: Word16)
-                     putLazyByteString bs
+    putC (CUTF8 bs) = putWord8 1 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
+    putC (CUnicode bs) = putWord8 2 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
+    putC (CMethodHandle t b) = putWord8 15 >> putWord8 t >> putWord16be b
+    putC (CMethodType b) = putWord8 16 >> putWord16be b
+    putC (CInvokeDynamic t m) = putWord8 18 >> putWord16be t >> putWord16be m
 
 getPool :: Word16 -> Get (Pool File)
 getPool n = do
@@ -526,8 +530,10 @@ getPool n = do
         10 -> CMethod    <$> get <*> get
         11 -> CIfaceMethod <$> get <*> get
         12 -> CNameType    <$> get <*> get
+        15 -> CMethodHandle <$> get <*> get
+        16 -> CMethodType <$> get
+        18 -> CInvokeDynamic <$> get <*> get
         _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
---         _ -> return $ CInteger 0
 
 -- | Class field format
 data Field stage = Field {
@@ -554,7 +560,7 @@ fieldNameType :: Field Direct -> NameType (Field Direct)
 fieldNameType f = NameType (fieldName f) (fieldSignature f)
 
 instance Binary (Field File) where
-  put (Field {..}) = do
+  put Field {..} = do
     put fieldAccessFlags
     put fieldName
     put fieldSignature

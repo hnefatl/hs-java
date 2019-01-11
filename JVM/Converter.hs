@@ -90,8 +90,7 @@ poolDirect2File pool = result
 
     cpInfo :: Constant Direct -> Constant File
     cpInfo (CClass name) = CClass (force "class" $ poolIndex result name)
-    cpInfo (CField cls name) =
-      CField (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
+    cpInfo (CField cls name) = CField (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
     cpInfo (CMethod cls name) =
       CMethod (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
     cpInfo (CIfaceMethod cls name) =
@@ -101,10 +100,12 @@ poolDirect2File pool = result
     cpInfo (CFloat x) = CFloat x
     cpInfo (CLong x) = CLong (fromIntegral x)
     cpInfo (CDouble x) = CDouble x
-    cpInfo (CNameType n t) =
-      CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
+    cpInfo (CNameType n t) = CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
     cpInfo (CUTF8 s) = CUTF8 s
     cpInfo (CUnicode s) = CUnicode s
+    cpInfo (CMethodHandle t b) = CMethodHandle t (force "type" $ poolIndex result b)
+    cpInfo (CMethodType b) = CMethodType (force "type" $ poolIndex result b)
+    cpInfo (CInvokeDynamic t b) = CInvokeDynamic t (force "method" $ poolNTIndex result b)
 
 -- | Find index of given string in the list of constants
 poolIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
@@ -197,6 +198,9 @@ poolFile2Direct ps = pool
     convert (CNameType i j) = CNameType (getString $ pool ! i) (getString $ pool ! j)
     convert (CUTF8 bs) = CUTF8 bs
     convert (CUnicode bs) = CUnicode bs
+    convert (CMethodHandle t i) = CMethodHandle t (getString $ pool ! i)
+    convert (CMethodType i) = CMethodType (getString $ pool ! i)
+    convert (CInvokeDynamic t i) = CInvokeDynamic t (convertNameType i)
 
 accessFile2Direct :: AccessFlags File -> AccessFlags Direct
 accessFile2Direct w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
