@@ -104,7 +104,7 @@ poolDirect2File pool = result
     cpInfo (CUTF8 s) = CUTF8 s
     cpInfo (CUnicode s) = CUnicode s
     cpInfo (CMethodHandle t cls b) = CMethodHandle t clsIndex (force "method" $ poolMethodIndex result cls b)
-        where clsIndex = force "classIndex" $ poolIndex result cls
+        where clsIndex = force "classIndex" $ poolClassIndex result cls
     cpInfo (CMethodType b) = CMethodType (force "type" $ poolIndex result b)
     cpInfo (CInvokeDynamic t b) = CInvokeDynamic t (force "method" $ poolNTIndex result b)
 
@@ -146,8 +146,8 @@ poolNTIndex list nt = do
 
 poolMethodIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> Method Direct -> m Word16
 poolMethodIndex list cls m = do
-    si <- poolIndex list (methodName m)
-    ci <- poolIndex list cls
+    si <- poolNTIndex list (methodNameType m)
+    ci <- poolClassIndex list cls
     let check (CMethod c' s')
             | (ci == c') && (si == s') = True
         check _                  = False
