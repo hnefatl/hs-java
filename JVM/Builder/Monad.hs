@@ -216,7 +216,7 @@ addToPool c@(CMethodHandle _ cls method) = do
 addToPool c@(CMethodType sig) = do
     _ <- addItem (CUTF8 sig)
     addItem c
-addToPool (CInvokeDynamic _ nt) = addNT nt
+addToPool c@(CInvokeDynamic _ nt) = addNT nt >> addItem c
 addToPool c = addItem c
 
 putInstruction :: MonadGenerator m => Instruction -> m ()
