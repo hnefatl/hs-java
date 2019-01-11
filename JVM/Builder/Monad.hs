@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -348,13 +349,13 @@ initClass name = do
 generateT :: Monad m
            => [Tree CPEntry]
            -> B.ByteString
-           -> GeneratorT m ()
-           -> ExceptT GeneratorException m (Class Direct)
+           -> GeneratorT m a
+           -> ExceptT GeneratorException m (a, Class Direct)
 generateT cp name gen = do
     let generator = initClass name >> gen
         d = defaultClass :: Class Direct
-    res <- execGeneratorT cp generator
-    return $ d {
+    (x, res) <- runGeneratorT cp generator
+    return $ (x,) $ d {
         constsPoolSize = fromIntegral $ M.size (currentPool res),
         constsPool = currentPool res,
         accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
@@ -365,8 +366,8 @@ generateT cp name gen = do
 
 generateIO :: [Tree CPEntry]
          -> B.ByteString
-         -> GeneratorIO ()
-         -> IO (Class Direct)
+         -> GeneratorIO a
+         -> IO (a, Class Direct)
 generateIO cp name gen = do
     x <- runExceptT $ generateT cp name gen
     case x of
@@ -376,6 +377,6 @@ generateIO cp name gen = do
 -- | Generate a class
 generate :: [Tree CPEntry]
          -> B.ByteString
-         -> Generator ()
-         -> Except GeneratorException (Class Direct)
+         -> Generator a
+         -> Except GeneratorException (a, Class Direct)
 generate = generateT
