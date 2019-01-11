@@ -483,9 +483,9 @@ putPool pool = do
     putC (CNameType i j) = putWord8 12 >> put i >> put j
     putC (CUTF8 bs) = putWord8 1 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
     putC (CUnicode bs) = putWord8 2 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
-    putC (CMethodHandle t _ b) = putWord8 15 >> putWord8 t >> putWord16be b
-    putC (CMethodType b) = putWord8 16 >> putWord16be b
-    putC (CInvokeDynamic t m) = putWord8 18 >> putWord16be t >> putWord16be m
+    putC (CMethodHandle t _ b) = putWord8 15 >> put t >> put b
+    putC (CMethodType b) = putWord8 16 >> put b
+    putC (CInvokeDynamic t m) = putWord8 18 >> put t >> put m
     
 getPool :: Word16 -> Get (Pool File)
 getPool n = do
