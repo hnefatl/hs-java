@@ -253,7 +253,7 @@ defaultClass :: (Default (AccessFlags stage), Default (Link stage B.ByteString),
 defaultClass = Class {
   magic = 0xCAFEBABE,
   minorVersion = 0,
-  majorVersion = 50,
+  majorVersion = 52,
   constsPoolSize = 0,
   constsPool = def,
   accessFlags = def,
