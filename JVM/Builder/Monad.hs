@@ -32,7 +32,8 @@ module JVM.Builder.Monad (
     getClassField, getClassMethod,
     generate, generateT, generateIO,
     encodedCodeLength,
-    generateCodeLength
+    generateCodeLength,
+    genCode
   ) where
 
 import           Control.Monad.Except
