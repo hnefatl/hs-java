@@ -159,19 +159,15 @@ withClassPath cp = do
 -- | Add a constant to pool
 addItem :: MonadGenerator m => Constant Direct -> m Word16
 addItem c = do
-  pool <- getsGState currentPool
-  case lookupPool c pool of
-    Just i -> return i
-    Nothing -> do
-      i <- getsGState nextPoolIndex
-      let pool' = M.insert i c pool
-          i' = if long c
-                 then i+2
-                 else i+1
-      modifyGState $ \st ->
-            st {currentPool = pool',
-                nextPoolIndex = i'}
-      return i
+    pool <- getsGState currentPool
+    case lookupPool c pool of
+        Just i -> return i
+        Nothing -> do
+            i <- getsGState nextPoolIndex
+            let pool' = M.insert i c pool
+                i' = if long c then i+2 else i+1
+            modifyGState $ \st -> st { currentPool = pool', nextPoolIndex = i' }
+            return i
 
 -- | Lookup in a pool
 lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
@@ -214,11 +210,17 @@ addToPool c@(CNameType name sig) = do
   _ <- addItem (CUTF8 name)
   _ <- addItem (CUTF8 sig)
   addItem c
+addToPool c@(CMethodHandle _ cls method) = do
+    _ <- addToPool (CMethod cls (methodNameType method))
+    addItem c
+addToPool c@(CMethodType sig) = do
+    _ <- addItem (CUTF8 sig)
+    addItem c
+addToPool (CInvokeDynamic _ nt) = addNT nt
 addToPool c = addItem c
 
 putInstruction :: MonadGenerator m => Instruction -> m ()
-putInstruction instr = do
-  modifyGState $ \st -> st {generated = generated st ++ [instr]}
+putInstruction instr = modifyGState $ \st -> st {generated = generated st ++ [instr]}
 
 -- | Generate one (zero-arguments) instruction
 i0 :: MonadGenerator m => Instruction -> m ()

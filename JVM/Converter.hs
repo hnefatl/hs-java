@@ -103,7 +103,8 @@ poolDirect2File pool = result
     cpInfo (CNameType n t) = CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
     cpInfo (CUTF8 s) = CUTF8 s
     cpInfo (CUnicode s) = CUnicode s
-    cpInfo (CMethodHandle t b) = CMethodHandle t (force "type" $ poolIndex result b)
+    cpInfo (CMethodHandle t cls b) = CMethodHandle t clsIndex (force "method" $ poolMethodIndex result clsIndex b)
+        where clsIndex = force "classIndex" $ poolIndex result cls
     cpInfo (CMethodType b) = CMethodType (force "type" $ poolIndex result b)
     cpInfo (CInvokeDynamic t b) = CInvokeDynamic t (force "method" $ poolNTIndex result b)
 
@@ -133,19 +134,28 @@ poolClassIndex list name = case mapFindIndex checkString list of
     checkClass _ _          = False
 
 poolNTIndex :: (MonadError GeneratorException m, HasSignature a) => Pool File -> NameType a -> m Word16
-poolNTIndex list x@(NameType n t) = do
-    ni <- poolIndex list n
-    ti <- poolIndex list (byteString t)
+poolNTIndex list nt = do
+    ni <- poolIndex list (ntName nt)
+    ti <- poolIndex list (byteString $ ntSignature nt)
+    let check n t (CNameType n' t')
+            | (n == n') && (t == t') = True
+        check _ _ _                  = False
     case mapFindIndex (check ni ti) list of
-      Nothing -> throwError (NoItemInPool x)
-      Just i  -> return $ fromIntegral i
-  where
-    check ni ti (CNameType n' t')
-      | (ni == n') && (ti == t') = True
-    check _ _ _                  = False
+        Nothing -> throwError (NoItemInPool nt)
+        Just i  -> return $ fromIntegral i
+
+poolMethodIndex :: MonadError GeneratorException m => Pool File -> Word16 -> Method Direct -> m Word16
+poolMethodIndex list clsIndex m = do
+    ni <- poolIndex list (methodName m)
+    let check s (CMethod c' s')
+            | (clsIndex == c') && (s == s') = True
+        check _ _                  = False
+    case mapFindIndex (check ni) list of
+        Nothing -> throwError (NoItemInPool m)
+        Just i  -> return $ fromIntegral i
 
 fieldDirect2File :: Pool File -> Field Direct -> Field File
-fieldDirect2File pool (Field {..}) = Field {
+fieldDirect2File pool Field {..} = Field {
     fieldAccessFlags = accessDirect2File fieldAccessFlags,
     fieldName = force "field name" $ poolIndex pool fieldName,
     fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
@@ -156,7 +166,7 @@ fieldDirect2File pool (Field {..}) = Field {
     to pairs = AP (map (attrInfo pool) pairs)
 
 methodDirect2File :: Pool File -> Method Direct -> Method File
-methodDirect2File pool (Method {..}) = Method {
+methodDirect2File pool Method {..} = Method {
     methodAccessFlags = accessDirect2File methodAccessFlags,
     methodName = force "method name" $ poolIndex pool methodName,
     methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
@@ -179,8 +189,7 @@ poolFile2Direct ps = pool
     pool = M.map convert ps
 
     convertNameType :: (HasSignature a) => Word16 -> NameType a
-    convertNameType i =
-      case pool ! i of
+    convertNameType i = case pool ! i of
         CNameType n s -> NameType n (decode s)
         _             -> error $ "Unexpected: " ++ show i
 
@@ -198,7 +207,7 @@ poolFile2Direct ps = pool
     convert (CNameType i j) = CNameType (getString $ pool ! i) (getString $ pool ! j)
     convert (CUTF8 bs) = CUTF8 bs
     convert (CUnicode bs) = CUnicode bs
-    convert (CMethodHandle t i) = CMethodHandle t (getString $ pool ! i)
+    convert (CMethodHandle _ _ _) = error "Idk can't figure this out"
     convert (CMethodType i) = CMethodType (getString $ pool ! i)
     convert (CInvokeDynamic t i) = CInvokeDynamic t (convertNameType i)
 
@@ -223,7 +232,7 @@ accessDirect2File fs = bitsOr $ map toBit $ S.toList fs
     toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)
 
 fieldFile2Direct :: Pool Direct -> Field File -> Field Direct
-fieldFile2Direct pool (Field {..}) = Field {
+fieldFile2Direct pool Field {..} = Field {
   fieldAccessFlags = accessFile2Direct fieldAccessFlags,
   fieldName = getString $ pool ! fieldName,
   fieldSignature = decode $ getString $ pool ! fieldSignature,
@@ -231,7 +240,7 @@ fieldFile2Direct pool (Field {..}) = Field {
   fieldAttributes = attributesFile2Direct pool fieldAttributes }
 
 methodFile2Direct :: Pool Direct -> Method File -> Method Direct
-methodFile2Direct pool (Method {..}) = Method {
+methodFile2Direct pool Method {..} = Method {
   methodAccessFlags = accessFile2Direct methodAccessFlags,
   methodName = getString $ pool ! methodName,
   methodSignature = decode $ getString $ pool ! methodSignature,
@@ -242,7 +251,7 @@ attributesFile2Direct :: Pool Direct -> Attributes File -> Attributes Direct
 attributesFile2Direct pool (AP attrs) = AR (M.fromList $ map go attrs)
   where
     go :: Attribute -> (B.ByteString, B.ByteString)
-    go (Attribute {..}) = (getString $ pool ! attributeName,
+    go Attribute {..} = (getString $ pool ! attributeName,
                            attributeValue)
 
 -- | Try to get class method by name

@@ -189,7 +189,7 @@ data Constant stage =
   | CNameType (Link stage B.ByteString) (Link stage B.ByteString)
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
-  | CMethodHandle Word8 (Link stage B.ByteString)
+  | CMethodHandle Word8 (Link stage B.ByteString) (Link stage (Method stage)) -- handle type, class, method
   | CMethodType (Link stage B.ByteString)
   | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
 
@@ -211,7 +211,7 @@ instance Show (Constant Direct) where
   show (CNameType name tp)   = "NameAndType " ++ toString name ++ ":" ++ toString tp
   show (CUTF8 s)             = "UTF8 \"" ++ toString s ++ "\""
   show (CUnicode s)          = "Unicode \"" ++ toString s ++ "\""
-  show (CMethodHandle t b)   = "MethodHandle " ++ show t ++ toString b
+  show (CMethodHandle t _ b) = "MethodHandle " ++ show t ++ show b
   show (CMethodType b)       = "MethodType " ++ toString b
   show (CInvokeDynamic t m)  = "InvokeDynamic " ++ show t ++ show m
 
@@ -393,12 +393,10 @@ instance Binary FieldType where
 -- | Read string up to `;'
 getToSemicolon :: Get String
 getToSemicolon = do
-  x <- get
-  if x == ';'
-    then return []
-    else do
-         next <- getToSemicolon
-         return (x: next)
+    x <- get
+    if x == ';' then return [] else do
+        next <- getToSemicolon
+        return (x: next)
 
 -- | Return value signature
 data ReturnSignature =
@@ -424,27 +422,26 @@ instance Binary ReturnSignature where
 type ArgumentSignature = FieldType
 
 -- | Class method argument signature
-data MethodSignature =
-    MethodSignature [ArgumentSignature] ReturnSignature
-  deriving (Eq, Ord)
+data MethodSignature = MethodSignature [ArgumentSignature] ReturnSignature
+    deriving (Eq, Ord)
 
 instance Show MethodSignature where
-  show (MethodSignature args ret) = "(" ++ intercalate ", " (map show args) ++ ") returns " ++ show ret
+    show (MethodSignature args ret) = "(" ++ intercalate ", " (map show args) ++ ") returns " ++ show ret
 
 instance Binary MethodSignature where
-  put (MethodSignature args ret) = do
-    put '('
-    forM_ args put
-    put ')'
-    put ret
+    put (MethodSignature args ret) = do
+        put '('
+        forM_ args put
+        put ')'
+        put ret
 
-  get =  do
-    x <- getChar8
-    when (x /= '(') $ fail "Cannot parse method signature: no starting `(' !"
-    args <- getArgs
-    y <- getChar8
-    when (y /= ')') $ fail "Internal error: method signature without `)' !?"
-    MethodSignature args <$> get
+    get =  do
+        x <- getChar8
+        when (x /= '(') $ fail "Cannot parse method signature: no starting `(' !"
+        args <- getArgs
+        y <- getChar8
+        when (y /= ')') $ fail "Internal error: method signature without `)' !?"
+        MethodSignature args <$> get
 
 -- | Read arguments signatures (up to `)')
 getArgs :: Get [ArgumentSignature]
@@ -486,14 +483,21 @@ putPool pool = do
     putC (CNameType i j) = putWord8 12 >> put i >> put j
     putC (CUTF8 bs) = putWord8 1 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
     putC (CUnicode bs) = putWord8 2 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
-    putC (CMethodHandle t b) = putWord8 15 >> putWord8 t >> putWord16be b
+    putC (CMethodHandle t _ b) = putWord8 15 >> putWord8 t >> putWord16be b
     putC (CMethodType b) = putWord8 16 >> putWord16be b
     putC (CInvokeDynamic t m) = putWord8 18 >> putWord16be t >> putWord16be m
-
+    
 getPool :: Word16 -> Get (Pool File)
 getPool n = do
-    items <- St.evalStateT go 1
-    return $ M.fromList items
+    items <- M.fromList <$> St.evalStateT go 1
+    -- Add the class names to the CMethodHandle constants
+    let addClasses (CMethodHandle t _ b) = case M.lookup b items of
+            Just (CClass name) -> CMethodHandle t name b
+            Just _ -> error "Found non-class for MethodHandle"
+            Nothing -> error "No class found for MethodHandle"
+        addClasses x = x
+        items' = M.map addClasses items
+    return items'
   where
     go :: St.StateT Word16 Get [(Word16, Constant File)]
     go = do
@@ -502,9 +506,7 @@ getPool n = do
         then return []
         else do
           c <- lift getC
-          let i' = if long c
-                      then i+2
-                      else i+1
+          let i' = if long c then i+2 else i+1
           St.put i'
           next <- go
           return $ (i,c): next
@@ -530,7 +532,7 @@ getPool n = do
         10 -> CMethod    <$> get <*> get
         11 -> CIfaceMethod <$> get <*> get
         12 -> CNameType    <$> get <*> get
-        15 -> CMethodHandle <$> get <*> get
+        15 -> CMethodHandle <$> get <*> pure 0 <*> get
         16 -> CMethodType <$> get
         18 -> CInvokeDynamic <$> get <*> get
         _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
