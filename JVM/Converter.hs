@@ -103,7 +103,7 @@ poolDirect2File pool = result
     cpInfo (CNameType n t) = CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
     cpInfo (CUTF8 s) = CUTF8 s
     cpInfo (CUnicode s) = CUnicode s
-    cpInfo (CMethodHandle t cls b) = CMethodHandle t clsIndex (force "method" $ poolMethodIndex result clsIndex b)
+    cpInfo (CMethodHandle t cls b) = CMethodHandle t clsIndex (force "method" $ poolMethodIndex result cls b)
         where clsIndex = force "classIndex" $ poolIndex result cls
     cpInfo (CMethodType b) = CMethodType (force "type" $ poolIndex result b)
     cpInfo (CInvokeDynamic t b) = CInvokeDynamic t (force "method" $ poolNTIndex result b)
@@ -137,20 +137,21 @@ poolNTIndex :: (MonadError GeneratorException m, HasSignature a) => Pool File ->
 poolNTIndex list nt = do
     ni <- poolIndex list (ntName nt)
     ti <- poolIndex list (byteString $ ntSignature nt)
-    let check n t (CNameType n' t')
-            | (n == n') && (t == t') = True
-        check _ _ _                  = False
-    case mapFindIndex (check ni ti) list of
+    let check (CNameType n' t')
+            | (ni == n') && (ti == t') = True
+        check _                  = False
+    case mapFindIndex check list of
         Nothing -> throwError (NoItemInPool nt)
         Just i  -> return $ fromIntegral i
 
-poolMethodIndex :: MonadError GeneratorException m => Pool File -> Word16 -> Method Direct -> m Word16
-poolMethodIndex list clsIndex m = do
+poolMethodIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> Method Direct -> m Word16
+poolMethodIndex list cls m = do
     si <- poolIndex list (methodName m)
-    let check s (CMethod c' s')
-            | (clsIndex == c') && (s == s') = True
-        check _ _                  = False
-    case mapFindIndex (check si) list of
+    ci <- poolIndex list cls
+    let check (CMethod c' s')
+            | (ci == c') && (si == s') = True
+        check _                  = False
+    case mapFindIndex check list of
         Nothing -> throwError (NoItemInPool m)
         Just i  -> return $ fromIntegral i
 
