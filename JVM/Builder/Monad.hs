@@ -26,6 +26,7 @@ module JVM.Builder.Monad (
     evalGeneratorT,
     runGeneratorT,
     addToPool,
+    addSig,
     i0, i1, i8,
     newMethod,
     setStackSize, setMaxLocals,
