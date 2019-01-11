@@ -146,11 +146,11 @@ poolNTIndex list nt = do
 
 poolMethodIndex :: MonadError GeneratorException m => Pool File -> Word16 -> Method Direct -> m Word16
 poolMethodIndex list clsIndex m = do
-    ni <- poolIndex list (methodName m)
+    si <- poolIndex list (methodName m)
     let check s (CMethod c' s')
             | (clsIndex == c') && (s == s') = True
         check _ _                  = False
-    case mapFindIndex (check ni) list of
+    case mapFindIndex (check si) list of
         Nothing -> throwError (NoItemInPool m)
         Just i  -> return $ fromIntegral i
 

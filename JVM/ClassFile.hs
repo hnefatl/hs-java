@@ -211,9 +211,9 @@ instance Show (Constant Direct) where
   show (CNameType name tp)   = "NameAndType " ++ toString name ++ ":" ++ toString tp
   show (CUTF8 s)             = "UTF8 \"" ++ toString s ++ "\""
   show (CUnicode s)          = "Unicode \"" ++ toString s ++ "\""
-  show (CMethodHandle t _ b) = "MethodHandle " ++ show t ++ show b
+  show (CMethodHandle t cls b) = "MethodHandle " ++ show t ++ " " ++ show b ++ " (class " ++ show cls ++ ")"
   show (CMethodType b)       = "MethodType " ++ toString b
-  show (CInvokeDynamic t m)  = "InvokeDynamic " ++ show t ++ show m
+  show (CInvokeDynamic t m)  = "InvokeDynamic " ++ show t ++ ":" ++ show m
 
 -- | Constant pool
 type Pool stage = M.Map Word16 (Constant stage)
