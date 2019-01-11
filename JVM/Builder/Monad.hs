@@ -22,6 +22,8 @@ module JVM.Builder.Monad (
     GeneratorT(..),
     Generator, GeneratorIO,
     execGeneratorT,
+    evalGeneratorT,
+    runGeneratorT,
     addToPool,
     i0, i1, i8,
     newMethod,
@@ -123,11 +125,15 @@ type GeneratorIO = GeneratorT IO
 type Generator = GeneratorT Identity
 
 execGeneratorT :: Monad m => [Tree CPEntry] -> GeneratorT m a -> ExceptT GeneratorException m GState
-execGeneratorT cp (GeneratorT inner) = do
+execGeneratorT cp = fmap fst . runGeneratorT cp
+evalGeneratorT :: Monad m => [Tree CPEntry] -> GeneratorT m a -> ExceptT GeneratorException m a
+evalGeneratorT cp = fmap snd . runGeneratorT cp
+runGeneratorT :: Monad m => [Tree CPEntry] -> GeneratorT m a -> ExceptT GeneratorException m (GState, a)
+runGeneratorT cp (GeneratorT inner) = do
     (x, s) <- lift $ runStateT (runExceptT inner) (emptyGState { classPath = cp })
     case x of
         Left err -> throwError err
-        Right _  -> return s
+        Right y  -> return (s, y)
 
 instance MonadError GeneratorException m => MonadError GeneratorException (GeneratorT m) where
     throwError = lift . throwError
