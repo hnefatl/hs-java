@@ -512,7 +512,7 @@ instance BinaryState Integer Instruction where
   put (INVOKESPECIAL x)     = put1 183 x
   put (INVOKESTATIC x)      = put1 184 x
   put (INVOKEINTERFACE x c) = put2 185 x c >> putByte 0
-  put (INVOKEDYNAMIC x) = put1 186 x
+  put (INVOKEDYNAMIC x) = put1 186 x >> putByte 0 >> putByte 0
   put (NEW x)         = put1 187 x
   put (NEWARRAY x)    = put1 188 x
   put (ANEWARRAY x)   = put1 189 x
