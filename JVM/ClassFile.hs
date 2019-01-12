@@ -33,6 +33,8 @@ module JVM.ClassFile
    -- * Misc
    HasSignature (..), HasAttributes (..),
    NameType (..),
+   MethodHandleKind(..),
+   mhtToWord, wordToMht,
    fieldNameType, methodNameType,
    lookupField, lookupMethod,
    long,
