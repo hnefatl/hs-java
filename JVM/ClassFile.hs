@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses         #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE RecordWildCards      #-}
@@ -189,9 +190,48 @@ data Constant stage =
   | CNameType (Link stage B.ByteString) (Link stage B.ByteString)
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
-  | CMethodHandle Word8 (Link stage B.ByteString) (Link stage (Method stage)) -- handle type, class, method
+  | CMethodHandle MethodHandleKind (Link stage B.ByteString) (Link stage (Method stage)) -- handle type, class, method
   | CMethodType (Link stage B.ByteString)
   | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
+
+data MethodHandleKind = 
+      GetField
+    | GetStatic
+    | PutField
+    | PutStatic
+    | InvokeVirtual
+    | InvokeStatic
+    | InvokeSpecial
+    | NewInvokeSpecial
+    | InvokeInterface
+    deriving (Eq, Ord)
+mhtToWord :: MethodHandleKind -> Word8
+mhtToWord GetField = 1
+mhtToWord GetStatic = 2
+mhtToWord PutField = 3
+mhtToWord PutStatic = 4
+mhtToWord InvokeVirtual = 5
+mhtToWord InvokeStatic = 6
+mhtToWord InvokeSpecial = 7
+mhtToWord NewInvokeSpecial = 8
+mhtToWord InvokeInterface = 9
+wordToMht :: Word8 -> MethodHandleKind
+wordToMht 1 = GetField
+wordToMht 2 = GetStatic
+wordToMht 3 = PutField
+wordToMht 4 = PutStatic
+wordToMht 5 = InvokeVirtual
+wordToMht 6 = InvokeStatic
+wordToMht 7 = InvokeSpecial
+wordToMht 8 = NewInvokeSpecial
+wordToMht 9 = InvokeInterface
+wordToMht i = error $ "Invalid word for MethodHandleKind: " <> show i
+
+instance Show MethodHandleKind where
+    show = show . mhtToWord
+instance Binary MethodHandleKind where
+    put = put . mhtToWord
+    get = wordToMht <$> get
 
 -- | Name of the CClass. Error on any other constant.
 className ::  Constant Direct -> B.ByteString
