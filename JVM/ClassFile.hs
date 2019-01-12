@@ -194,6 +194,7 @@ data Constant stage =
   | CMethodType (Link stage B.ByteString)
   | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
 
+-- https://docs.oracle.com/javase/8/docs/api/java/lang/invoke/MethodHandleInfo.html
 data MethodHandleKind = 
       GetField
     | GetStatic
