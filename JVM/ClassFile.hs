@@ -1,6 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses         #-}
 {-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE RecordWildCards      #-}
@@ -34,6 +33,9 @@ module JVM.ClassFile
    HasSignature (..), HasAttributes (..),
    NameType (..),
    MethodHandleKind(..),
+   BootstrapMethodsAttribute(..),
+   BootstrapMethod(..),
+   AttributeConvertible(..),
    mhtToWord, wordToMht,
    fieldNameType, methodNameType,
    lookupField, lookupMethod,
@@ -47,6 +49,7 @@ module JVM.ClassFile
 import           Codec.Binary.UTF8.String hiding (decode, encode)
 import           Control.Monad
 import qualified Control.Monad.State      as St
+import           Control.Monad.Except (Except, runExcept, liftEither)
 import           Control.Monad.Trans      (lift)
 import           Data.Binary
 import qualified Data.BinaryState as BinaryState
@@ -57,6 +60,7 @@ import qualified Data.ByteString.Lazy     as B
 import           Data.Char
 import           Data.Default
 import           Data.List
+import           Data.Bifunctor           (bimap)
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
 
@@ -692,6 +696,52 @@ instance Binary Attribute where
     value <- getLazyByteString (fromIntegral len)
     return $ Attribute name len value
 
+class AttributeConvertible a where
+    toAttribute :: a -> Attribute
+    fromAttribute :: Attribute -> Either String a
+
+decodeOrFail' :: Binary a => B.ByteString -> Either String (a, B.ByteString)
+decodeOrFail' = bimap (\(_,_,x) -> x) (\(x,_,y) -> (y,x)) . decodeOrFail
+
+-- |The BootstrapMethods attribute
+-- https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.7.23
+data BootstrapMethodsAttribute = BootstrapMethodsAttribute
+    { attributeNameIndex :: Word16 -- An index into the constant pool to a UTF8 entry containing "BootstrapMethods"
+    , attributeMethods :: [BootstrapMethod] }
+    deriving (Eq, Ord, Show)
+data BootstrapMethod = BootstrapMethod
+    { bootstrapMethodRef :: Word16
+    , bootstrapArguments :: [Word16] }
+    deriving (Eq, Ord, Show)
+instance Binary BootstrapMethod where
+    put m = do
+        put $ bootstrapMethodRef m
+        put $ (fromIntegral $ length $ bootstrapArguments m :: Word16)
+        forM_ (bootstrapArguments m) put -- Don't use the default list instance as it prepends the length
+    get = do
+        ref <- get
+        numArgs <- get :: Get Word16
+        args <- replicateM (fromIntegral numArgs) get
+        return $ BootstrapMethod { bootstrapMethodRef = ref, bootstrapArguments = args }
+
+instance AttributeConvertible BootstrapMethodsAttribute where
+    toAttribute (BootstrapMethodsAttribute index methods) =
+        Attribute { attributeName = index, attributeLength = payloadLength, attributeValue = payload }
+        where numMethods = genericLength methods :: Word16
+              payload = encode numMethods <> mconcat (map encode methods)
+              payloadLength = fromIntegral $ B.length payload
+
+    fromAttribute (Attribute name _ payload) = do
+        (numMethods, payload') <- decodeOrFail' payload :: Either String (Word16, B.ByteString)
+        let helper :: St.StateT B.ByteString (Except String) BootstrapMethod
+            helper = do
+                p <- St.get
+                (m, p') <- liftEither $ decodeOrFail' p
+                St.put p'
+                return m
+        methods <- runExcept $ St.evalStateT (replicateM (fromIntegral numMethods) helper) payload'
+        return $ BootstrapMethodsAttribute { attributeNameIndex = name, attributeMethods = methods }
+
 class HasAttributes a where
   attributes :: a stage -> Attributes stage
 
@@ -703,4 +753,3 @@ instance HasAttributes Field where
 
 instance HasAttributes Method where
   attributes = methodAttributes
-
