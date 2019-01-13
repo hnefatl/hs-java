@@ -300,6 +300,10 @@ getStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) ->
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
 
+putStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
+putStaticField cls sig =
+    i1 SETSTATIC (CField cls sig)
+
 loadString :: MonadGenerator m => String -> m ()
 loadString str =
   i8 LDC1 (CString $ fromString $ encodeString $ str)
