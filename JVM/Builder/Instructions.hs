@@ -302,7 +302,7 @@ getStaticField cls sig =
 
 putStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
 putStaticField cls sig =
-    i1 SETSTATIC (CField cls sig)
+    i1 PUTSTATIC (CField cls sig)
 
 loadString :: MonadGenerator m => String -> m ()
 loadString str =
