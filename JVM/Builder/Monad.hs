@@ -29,6 +29,7 @@ module JVM.Builder.Monad (
     addSig,
     i0, i1, i8,
     newMethod,
+    newField,
     setStackSize, setMaxLocals,
     withClassPath,
     getClassField, getClassMethod,
@@ -62,6 +63,7 @@ data GState = GState {
   nextPoolIndex :: Word16,                -- ^ Next index to be used in constants pool
   doneMethods   :: [Method Direct],         -- ^ Already generated class methods
   currentMethod :: Maybe (Method Direct), -- ^ Current method
+  fields        :: [Field Direct],
   stackSize     :: Word16,                    -- ^ Maximum stack size for current method
   locals        :: Word16,                       -- ^ Maximum number of local variables for current method
   classPath     :: [Tree CPEntry]
@@ -75,6 +77,7 @@ emptyGState = GState {
   currentPool = M.empty,
   nextPoolIndex = 1,
   doneMethods = [],
+  fields = [],
   currentMethod = Nothing,
   stackSize = 496,
   locals = 0,
@@ -294,6 +297,20 @@ newMethod flags name args ret gen = do
     endMethod
     return (NameType name sig)
 
+newField :: MonadGenerator m => [AccessFlag] -> B.ByteString -> FieldType -> m (NameType (Field Direct))
+newField access name desc = do
+    void $ addToPool (CString name)
+    void $ addToPool (CUTF8 $ encode desc)
+    s <- getGState
+    let field = Field
+            { fieldAccessFlags = S.fromList access
+            , fieldName = name
+            , fieldSignature = desc
+            , fieldAttributesCount = 0
+            , fieldAttributes = AR M.empty }
+    putGState s { fields = field:fields s }
+    return $ fieldNameType field
+
 -- | Get a class from current ClassPath
 getClass :: (MonadIO m, MonadGenerator m) => String -> m (Class Direct)
 getClass name = do
@@ -365,7 +382,8 @@ generateT cp name gen = do
         thisClass = name,
         superClass = "java/lang/Object",
         classMethodsCount = fromIntegral $ length (doneMethods res),
-        classMethods = doneMethods res }
+        classMethods = doneMethods res,
+        classFields = fields res }
 
 generateIO :: [Tree CPEntry]
          -> B.ByteString
