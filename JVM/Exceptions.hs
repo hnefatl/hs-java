@@ -9,6 +9,7 @@ import           JVM.ClassFile
 
 data GeneratorException where
     NoItemInPool :: Show a => a -> GeneratorException
+    NoMethodUnderConstruction :: GeneratorException
     UnexpectedEndMethod :: GeneratorException
     ClassFileNotLoaded :: FilePath -> GeneratorException
     JARNotLoaded :: FilePath -> String -> GeneratorException
@@ -20,6 +21,7 @@ data GeneratorException where
 instance Show GeneratorException where
   show (NoItemInPool s) = "Internal error: no such item in pool: <" <> show s <> ">"
   show UnexpectedEndMethod = "endMethod without startMethod!"
+  show NoMethodUnderConstruction = "No method under construction"
   show (ClassFileNotLoaded p) = "Class file was not loaded: " <> p
   show (JARNotLoaded p c) = "Class was not loaded from JAR: " <> p <> ": " <> c
   show (ClassNotFound p)    = "No such class in ClassPath: " <> p
