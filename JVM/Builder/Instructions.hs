@@ -272,6 +272,9 @@ new :: MonadGenerator m => B.ByteString -> m ()
 new cls =
   i1 NEW (CClass cls)
 
+checkCast :: MonadGenerator m => B.ByteString -> m ()
+checkCast cls = i1 CHECKCAST (CClass cls)
+
 newArray :: MonadGenerator m => ArrayType -> m ()
 newArray t =
   i0 (NEWARRAY $ atype2byte t)
