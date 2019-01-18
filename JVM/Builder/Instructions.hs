@@ -58,11 +58,11 @@ sipush :: MonadGenerator m => Word16 -> m ()
 sipush x = i0 (SIPUSH x)
 
 ldc1 :: MonadGenerator m => Constant Direct -> m ()
-ldc1 x = i8 LDC1 x
+ldc1 = i8 LDC1
 ldc2 :: MonadGenerator m => Constant Direct -> m ()
-ldc2 x = i1 LDC2 x
+ldc2 = i1 LDC2
 ldc2w :: MonadGenerator m => Constant Direct -> m ()
-ldc2w x = i1 LDC2W x
+ldc2w = i1 LDC2W
 iload :: MonadGenerator m => Word8 -> m ()
 iload x = i0 (ILOAD x)
 iloadw :: MonadGenerator m => Word16 -> m ()
@@ -326,6 +326,12 @@ getStaticField cls sig = i1 GETSTATIC (CField cls sig)
 
 putStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
 putStaticField cls sig = i1 PUTSTATIC (CField cls sig)
+
+getField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
+getField cls fld = i1 GETFIELD (CField cls fld)
+
+putField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
+putField cls fld = i1 PUTFIELD (CField cls fld)
 
 loadString :: MonadGenerator m => String -> m ()
 loadString = i8 LDC1 . CString . fromString . encodeString
