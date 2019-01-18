@@ -1,11 +1,17 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | This module exports shortcuts for some of JVM instructions (which are defined in JVM.Assembler).
 -- These functions get Constants, put them into constants pool and generate instruction using index
 -- of constant in the pool.
 module JVM.Builder.Instructions where
 
-import           Codec.Binary.UTF8.String (encodeString)
-import qualified Data.ByteString.Lazy     as B
+import           Codec.Binary.UTF8.String  (encodeString)
+import           Control.Monad.Except      (runExceptT)
+import           Control.Monad.Identity    (IdentityT(..), runIdentityT)
+import           Control.Monad.Trans.Class (MonadTrans, lift)
+import qualified Data.ByteString.Lazy      as B
+import           Data.List                 (genericLength, sortOn)
 import           Data.String
 import           Data.Word
 
@@ -292,51 +298,83 @@ wide fn c = do
   i0 (WIDE ix0 $ fn ix1)
 
 new :: MonadGenerator m => B.ByteString -> m ()
-new cls =
-  i1 NEW (CClass cls)
+new cls = i1 NEW (CClass cls)
 
 checkCast :: MonadGenerator m => B.ByteString -> m ()
 checkCast cls = i1 CHECKCAST (CClass cls)
 
 newArray :: MonadGenerator m => ArrayType -> m ()
-newArray t =
-  i0 (NEWARRAY $ atype2byte t)
+newArray t = i0 (NEWARRAY $ atype2byte t)
 
 allocNewArray :: MonadGenerator m => B.ByteString -> m ()
-allocNewArray cls =
-  i1 ANEWARRAY (CClass cls)
+allocNewArray cls = i1 ANEWARRAY (CClass cls)
 
 invokeVirtual :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
-invokeVirtual cls sig =
-  i1 INVOKEVIRTUAL (CMethod cls sig)
+invokeVirtual cls sig = i1 INVOKEVIRTUAL (CMethod cls sig)
 
 invokeStatic :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
-invokeStatic cls sig =
-  i1 INVOKESTATIC (CMethod cls sig)
+invokeStatic cls sig = i1 INVOKESTATIC (CMethod cls sig)
 
 invokeSpecial :: MonadGenerator m => B.ByteString -> NameType (Method Direct) -> m ()
-invokeSpecial cls sig =
-  i1 INVOKESPECIAL (CMethod cls sig)
+invokeSpecial cls sig = i1 INVOKESPECIAL (CMethod cls sig)
 
 invokeDynamic :: MonadGenerator m => Word16 -> NameType (Method Direct) -> m ()
-invokeDynamic bootstrapIndex sig =
-  i1 INVOKEDYNAMIC (CInvokeDynamic bootstrapIndex sig)
+invokeDynamic bootstrapIndex sig = i1 INVOKEDYNAMIC (CInvokeDynamic bootstrapIndex sig)
 
 getStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
-getStaticField cls sig =
-  i1 GETSTATIC (CField cls sig)
+getStaticField cls sig = i1 GETSTATIC (CField cls sig)
 
 putStaticField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
-putStaticField cls sig =
-    i1 PUTSTATIC (CField cls sig)
+putStaticField cls sig = i1 PUTSTATIC (CField cls sig)
 
 loadString :: MonadGenerator m => String -> m ()
-loadString str =
-  i8 LDC1 (CString $ fromString $ encodeString $ str)
+loadString = i8 LDC1 . CString . fromString . encodeString
 
 allocArray :: MonadGenerator m => B.ByteString -> m ()
-allocArray cls =
-  i1 ANEWARRAY (CClass cls)
+allocArray = i1 ANEWARRAY . CClass
 
 throw :: MonadGenerator m => m ()
 throw = i0 ATHROW
+
+-- |Inserting a switch is hard: the lookupSwitch instruction contains information dependent on information compiled
+-- after it, so we need to "pretend" to compile the branches to get their byte lengths, to compute the relative byte
+-- distance between the switch instruction and where the alt will begin.
+-- This is super general so it can be used anywhere in a monad transformer stack. See `lookupSwitch` for a more boring
+-- type signature.
+lookupSwitchGeneral ::
+    forall t m. (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
+    (t (GeneratorT m) () -> GeneratorT m ()) ->
+    t (GeneratorT m) () ->
+    [(Word32, t (GeneratorT m) ())] ->
+    t (GeneratorT m) ()
+lookupSwitchGeneral runT defaultAltGen alts = do
+    -- Sort the alts and split them into the keys for the lookup table and the generators for the branches
+    let numAlts = genericLength alts
+        alts' = sortOn fst alts
+        (altKeys, altGens) = unzip alts'
+        -- |getAltLength compiles a branch in an isolated monad instance and returns how many bytes long it is
+        getAltLength :: t (GeneratorT m) () -> t (GeneratorT m) Word32
+        getAltLength x = do
+            gState <- getGState
+            y <- lift $ lift $ runExceptT $ execGeneratorT (classPath gState) $ putGState gState >> runT x
+            case y of
+                Left e  -> throwG e
+                Right s -> lift $ return $ encodedCodeLength s
+    defaultAltLength <- getAltLength defaultAltGen
+    altLengths <- mapM getAltLength altGens
+    currentByte <- encodedCodeLength <$> getGState
+    let -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
+        instructionPadding = fromIntegral $ 4 - (currentByte `mod` 4)
+        -- 1 byte for instruction, then padding, then 4 bytes for the default case and 8 bytes for each other case
+        instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 8 * numAlts
+        -- The offsets past the switch instruction of each branch
+        altOffsets = scanl (+) defaultAltLength altLengths -- Other branches come after the default branch
+    -- Insert the switch statement, then the default alt, then the other alts
+    i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
+    defaultAltGen
+    sequence_ altGens
+
+lookupSwitch :: Generator () -> [(Word32, Generator ())] -> Generator ()
+lookupSwitch defaultAltGen alts = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
+    where defaultAltGen' = IdentityT defaultAltGen
+          alts' = map (\(i,x) -> (i, IdentityT x)) alts

@@ -1,10 +1,10 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -227,7 +227,7 @@ putInstruction :: MonadGenerator m => Instruction -> m ()
 putInstruction instr = do
     st <- getGState
     case generated st of
-        [] -> throwG NoMethodUnderConstruction
+        []                    -> throwG NoMethodUnderConstruction
         currentGen:stackedGen -> putGState $ st { generated = (currentGen ++ [instr]):stackedGen }
 
 -- | Generate one (zero-arguments) instruction

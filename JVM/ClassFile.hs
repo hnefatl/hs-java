@@ -1,12 +1,12 @@
-{-# LANGUAGE MultiParamTypeClasses         #-}
-{-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
 module JVM.ClassFile
@@ -48,19 +48,19 @@ module JVM.ClassFile
 
 import           Codec.Binary.UTF8.String hiding (decode, encode)
 import           Control.Monad
+import           Control.Monad.Except     (Except, liftEither, runExcept)
 import qualified Control.Monad.State      as St
-import           Control.Monad.Except (Except, runExcept, liftEither)
 import           Control.Monad.Trans      (lift)
+import           Data.Bifunctor           (bimap)
 import           Data.Binary
-import qualified Data.BinaryState as BinaryState
 import           Data.Binary.Get
 import           Data.Binary.IEEE754
 import           Data.Binary.Put
+import qualified Data.BinaryState         as BinaryState
 import qualified Data.ByteString.Lazy     as B
 import           Data.Char
 import           Data.Default
 import           Data.List
-import           Data.Bifunctor           (bimap)
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
 
@@ -201,7 +201,7 @@ data Constant stage =
   | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
 
 -- https://docs.oracle.com/javase/8/docs/api/java/lang/invoke/MethodHandleInfo.html
-data MethodHandleKind = 
+data MethodHandleKind =
       GetField
     | GetStatic
     | PutField
@@ -213,15 +213,15 @@ data MethodHandleKind =
     | InvokeInterface
     deriving (Eq, Ord)
 mhtToWord :: MethodHandleKind -> Word8
-mhtToWord GetField = 1
-mhtToWord GetStatic = 2
-mhtToWord PutField = 3
-mhtToWord PutStatic = 4
-mhtToWord InvokeVirtual = 5
-mhtToWord InvokeStatic = 6
-mhtToWord InvokeSpecial = 7
+mhtToWord GetField         = 1
+mhtToWord GetStatic        = 2
+mhtToWord PutField         = 3
+mhtToWord PutStatic        = 4
+mhtToWord InvokeVirtual    = 5
+mhtToWord InvokeStatic     = 6
+mhtToWord InvokeSpecial    = 7
 mhtToWord NewInvokeSpecial = 8
-mhtToWord InvokeInterface = 9
+mhtToWord InvokeInterface  = 9
 wordToMht :: Word8 -> MethodHandleKind
 wordToMht 1 = GetField
 wordToMht 2 = GetStatic
@@ -246,21 +246,21 @@ className (CClass s) = s
 className x          = error $ "Not a class: " ++ show x
 
 instance Show (Constant Direct) where
-  show (CClass name)         = "Class " ++ toString name
-  show (CField cls nt)       = "Fieldref " ++ toString cls ++ "." ++ show nt
-  show (CMethod cls nt)      = "Methodref " ++ toString cls ++ "." ++ show nt
-  show (CIfaceMethod cls nt) = "InterfaceMethodref " ++ toString cls ++ "." ++ show nt
-  show (CString s)           = "String \"" ++ toString s ++ "\""
-  show (CInteger x)          = "Integer" ++ show x
-  show (CFloat x)            = "Float " ++ show x
-  show (CLong x)             = "Long " ++ show x
-  show (CDouble x)           = "Double " ++ show x
-  show (CNameType name tp)   = "NameAndType " ++ toString name ++ ":" ++ toString tp
-  show (CUTF8 s)             = "UTF8 \"" ++ toString s ++ "\""
-  show (CUnicode s)          = "Unicode \"" ++ toString s ++ "\""
+  show (CClass name)           = "Class " ++ toString name
+  show (CField cls nt)         = "Fieldref " ++ toString cls ++ "." ++ show nt
+  show (CMethod cls nt)        = "Methodref " ++ toString cls ++ "." ++ show nt
+  show (CIfaceMethod cls nt)   = "InterfaceMethodref " ++ toString cls ++ "." ++ show nt
+  show (CString s)             = "String \"" ++ toString s ++ "\""
+  show (CInteger x)            = "Integer" ++ show x
+  show (CFloat x)              = "Float " ++ show x
+  show (CLong x)               = "Long " ++ show x
+  show (CDouble x)             = "Double " ++ show x
+  show (CNameType name tp)     = "NameAndType " ++ toString name ++ ":" ++ toString tp
+  show (CUTF8 s)               = "UTF8 \"" ++ toString s ++ "\""
+  show (CUnicode s)            = "Unicode \"" ++ toString s ++ "\""
   show (CMethodHandle t cls b) = "MethodHandle " ++ show t ++ " " ++ show b ++ " (class " ++ show cls ++ ")"
-  show (CMethodType b)       = "MethodType " ++ toString b
-  show (CInvokeDynamic t m)  = "InvokeDynamic " ++ show t ++ ":" ++ show m
+  show (CMethodType b)         = "MethodType " ++ toString b
+  show (CInvokeDynamic t m)    = "InvokeDynamic " ++ show t ++ ":" ++ show m
 
 -- | Constant pool
 type Pool stage = M.Map Word16 (Constant stage)
@@ -503,7 +503,7 @@ whileJust :: (Monad m) => m (Maybe a) -> m [a]
 whileJust m = do
   r <- m
   case r of
-    Just x -> (x:) <$> whileJust m
+    Just x  -> (x:) <$> whileJust m
     Nothing -> return []
 
 long :: Constant stage -> Bool
@@ -518,30 +518,30 @@ putPool pool = do
     putWord16be $ fromIntegral (M.size pool + d + 1)
     forM_ list putC
   where
-    putC (CClass i) = putWord8 7 >> put i
-    putC (CField i j) = putWord8 9 >> put i >> put j
-    putC (CMethod i j) = putWord8 10 >> put i >> put j
-    putC (CIfaceMethod i j) = putWord8 11 >> put i >> put j
-    putC (CString i) = putWord8 8 >> put i
-    putC (CInteger x) = putWord8 3 >> put x
-    putC (CFloat x)   = putWord8 4 >> putFloat32be x
-    putC (CLong x)    = putWord8 5 >> put x
-    putC (CDouble x)  = putWord8 6 >> putFloat64be x
-    putC (CNameType i j) = putWord8 12 >> put i >> put j
-    putC (CUTF8 bs) = putWord8 1 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
-    putC (CUnicode bs) = putWord8 2 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
+    putC (CClass i)            = putWord8 7 >> put i
+    putC (CField i j)          = putWord8 9 >> put i >> put j
+    putC (CMethod i j)         = putWord8 10 >> put i >> put j
+    putC (CIfaceMethod i j)    = putWord8 11 >> put i >> put j
+    putC (CString i)           = putWord8 8 >> put i
+    putC (CInteger x)          = putWord8 3 >> put x
+    putC (CFloat x)            = putWord8 4 >> putFloat32be x
+    putC (CLong x)             = putWord8 5 >> put x
+    putC (CDouble x)           = putWord8 6 >> putFloat64be x
+    putC (CNameType i j)       = putWord8 12 >> put i >> put j
+    putC (CUTF8 bs)            = putWord8 1 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
+    putC (CUnicode bs)         = putWord8 2 >> put (fromIntegral (B.length bs) :: Word16) >> putLazyByteString bs
     putC (CMethodHandle t _ b) = putWord8 15 >> put t >> put b
-    putC (CMethodType b) = putWord8 16 >> put b
-    putC (CInvokeDynamic t m) = putWord8 18 >> put t >> put m
-    
+    putC (CMethodType b)       = putWord8 16 >> put b
+    putC (CInvokeDynamic t m)  = putWord8 18 >> put t >> put m
+
 getPool :: Word16 -> Get (Pool File)
 getPool n = do
     items <- M.fromList <$> St.evalStateT go 1
     -- Add the class names to the CMethodHandle constants
     let addClasses (CMethodHandle t _ b) = case M.lookup b items of
             Just (CClass name) -> CMethodHandle t name b
-            Just _ -> error "Found non-class for MethodHandle"
-            Nothing -> error "No class found for MethodHandle"
+            Just _             -> error "Found non-class for MethodHandle"
+            Nothing            -> error "No class found for MethodHandle"
         addClasses x = x
         items' = M.map addClasses items
     return items'
@@ -707,7 +707,7 @@ decodeOrFail' = bimap (\(_,_,x) -> x) (\(x,_,y) -> (y,x)) . decodeOrFail
 -- https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.7.23
 data BootstrapMethodsAttribute = BootstrapMethodsAttribute
     { attributeNameIndex :: Word16 -- An index into the constant pool to a UTF8 entry containing "BootstrapMethods"
-    , attributeMethods :: [BootstrapMethod] }
+    , attributeMethods   :: [BootstrapMethod] }
     deriving (Eq, Ord, Show)
 data BootstrapMethod = BootstrapMethod
     { bootstrapMethodRef :: Word16

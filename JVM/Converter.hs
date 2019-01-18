@@ -16,6 +16,7 @@ module JVM.Converter
   )
   where
 
+import           Control.Monad.Except       (MonadError, throwError)
 import           Data.Binary
 import           Data.Bits
 import qualified Data.ByteString.Lazy       as B
@@ -24,7 +25,6 @@ import           Data.Default               ()
 import           Data.List
 import qualified Data.Map                   as M
 import qualified Data.Set                   as S
-import Control.Monad.Except (MonadError, throwError)
 
 import           JVM.ClassFile
 import           JVM.Common

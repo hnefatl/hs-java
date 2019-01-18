@@ -1,4 +1,4 @@
-{-# Language FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Java.ClassPath
   (module Java.ClassPath.Types,
@@ -31,7 +31,7 @@ appendPath path forest =
   merge $ forest ++ (mapF NotLoaded $ buildTree [map repl path])
   where
     repl '\\' = '/'
-    repl x = x
+    repl x    = x
 
 -- | Add one directory to current ClassPath
 addDirectory :: FilePath -> ClassPath ()

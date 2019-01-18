@@ -5,11 +5,11 @@ module Java.JAR
    addJAR
   ) where
 
-import qualified Codec.Archive.Zip as Zip
+import qualified Codec.Archive.Zip     as Zip
 
-import Control.Monad.Trans (liftIO)
-import qualified Control.Monad.State as St
-import Data.List
+import qualified Control.Monad.State   as St
+import           Control.Monad.Trans   (liftIO)
+import           Data.List
 
 import           Java.ClassPath
 import           Java.JAR.Archive
@@ -26,7 +26,7 @@ readManifest = do
          mpth <- Zip.mkEntrySelector manifestPath
          content <- Zip.getEntry mpth
          case parseMeta $ B.unpack content of
-           Left e -> fail $ show e
+           Left e     -> fail $ show e
            Right meta -> return $ Just (loadSpec meta)
     else return Nothing
 

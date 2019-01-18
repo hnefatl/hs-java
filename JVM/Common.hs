@@ -15,7 +15,7 @@ module JVM.Common
 import           Data.Binary
 import           Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
-import Data.Default
+import           Data.Default
 import           Data.List
 import qualified Data.Map             as M
 
