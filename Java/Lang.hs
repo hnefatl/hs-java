@@ -39,3 +39,5 @@ objectInit = NameType "<init>" $ MethodSignature [] ReturnsVoid
 valueOfInteger :: NameType (Method Direct)
 valueOfInteger = NameType "valueOf" $ MethodSignature [IntType] (Returns Java.Lang.integerClass)
 
+runtimeException :: IsString s => s
+runtimeException = "java/lang/RuntimeException"

@@ -338,3 +338,5 @@ allocArray :: MonadGenerator m => B.ByteString -> m ()
 allocArray cls =
   i1 ANEWARRAY (CClass cls)
 
+throw :: MonadGenerator m => m ()
+throw = i0 ATHROW
