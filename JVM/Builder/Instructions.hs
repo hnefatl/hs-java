@@ -336,9 +336,6 @@ putField cls fld = i1 PUTFIELD (CField cls fld)
 loadString :: MonadGenerator m => String -> m ()
 loadString = i8 LDC1 . CString . fromString . encodeString
 
-allocArray :: MonadGenerator m => B.ByteString -> m ()
-allocArray = i1 ANEWARRAY . CClass
-
 throw :: MonadGenerator m => m ()
 throw = i0 ATHROW
 
