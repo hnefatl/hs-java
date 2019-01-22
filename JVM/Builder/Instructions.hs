@@ -7,6 +7,7 @@
 module JVM.Builder.Instructions where
 
 import           Codec.Binary.UTF8.String  (encodeString)
+import           Control.Monad             (zipWithM_)
 import           Control.Monad.Except      (runExceptT)
 import           Control.Monad.Identity    (IdentityT(..), runIdentityT)
 import           Control.Monad.Trans.Class (MonadTrans, lift)
@@ -352,7 +353,8 @@ getGenLength :: (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator
     t (GeneratorT m) Word32
 getGenLength runT x = do
     gState <- getGState
-    y <- lift $ lift $ runExceptT $ execGeneratorT (classPath gState) $ putGState gState >> runT x
+    let gState' = gState { generated = []:tail (generated gState) }
+    y <- lift $ lift $ runExceptT $ execGeneratorT (classPath gState) $ putGState gState' >> runT x
     case y of
         Left e  -> throwG e
         Right s -> lift $ return $ encodedCodeLength s
@@ -373,19 +375,24 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     let numAlts = genericLength alts
         alts' = sortOn fst alts
         (altKeys, altGens) = unzip alts'
-    defaultAltLength <- getGenLength runT defaultAltGen
-    altLengths <- mapM (getGenLength runT) altGens
     currentByte <- encodedCodeLength <$> getGState
+    -- We're going to insert a goto at the end of each alt to jump to the next instruction past the end of the case so
+    -- add 3 bytes to the length of each alt
+    let gotoBytes = 3
+    defaultAltLength <- (gotoBytes +) <$> getGenLength runT defaultAltGen
+    altLengths <- map (gotoBytes +) <$> mapM (getGenLength runT) altGens
     let -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
         instructionPadding = fromIntegral $ 4 - (currentByte `mod` 4)
         -- 1 byte for instruction, then padding, then 4 bytes for the default case and 8 bytes for each other case
         instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 4 + numAlts * 8
         -- The offsets past the switch instruction of each branch
         altOffsets = scanl (+) defaultAltLength altLengths -- Other branches come after the default branch
+        -- How far to jump from the goto attached to each alt to get to just beyond everything
+        defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
     -- Insert the switch statement, then the default alt, then the other alts
     i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
-    defaultAltGen
-    sequence_ altGens
+    defaultAltGen >> goto defaultAltJump
+    zipWithM_ (\gen jump -> gen >> goto jump) altGens altJumps
 
 lookupSwitch :: Generator () -> [(Word32, Generator ())] -> Generator ()
 lookupSwitch defaultAltGen alts = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
