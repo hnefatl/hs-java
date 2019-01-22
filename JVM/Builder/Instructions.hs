@@ -339,13 +339,25 @@ loadString = i8 LDC1 . CString . fromString . encodeString
 throw :: MonadGenerator m => m ()
 throw = i0 ATHROW
 
+-- |getAltLength compiles a branch in an isolated monad instance and returns how many bytes long it is
+getGenLength :: (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
+    (t (GeneratorT m) () -> GeneratorT m ()) ->
+    t (GeneratorT m) () ->
+    t (GeneratorT m) Word32
+getGenLength runT x = do
+    gState <- getGState
+    y <- lift $ lift $ runExceptT $ execGeneratorT (classPath gState) $ putGState gState >> runT x
+    case y of
+        Left e  -> throwG e
+        Right s -> lift $ return $ encodedCodeLength s
+
 -- |Inserting a switch is hard: the lookupSwitch instruction contains information dependent on information compiled
 -- after it, so we need to "pretend" to compile the branches to get their byte lengths, to compute the relative byte
 -- distance between the switch instruction and where the alt will begin.
 -- This is super general so it can be used anywhere in a monad transformer stack. See `lookupSwitch` for a more boring
 -- type signature.
 lookupSwitchGeneral ::
-    forall t m. (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
+    (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
     (t (GeneratorT m) () -> GeneratorT m ()) ->
     t (GeneratorT m) () ->
     [(Word32, t (GeneratorT m) ())] ->
@@ -355,16 +367,8 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     let numAlts = genericLength alts
         alts' = sortOn fst alts
         (altKeys, altGens) = unzip alts'
-        -- |getAltLength compiles a branch in an isolated monad instance and returns how many bytes long it is
-        getAltLength :: t (GeneratorT m) () -> t (GeneratorT m) Word32
-        getAltLength x = do
-            gState <- getGState
-            y <- lift $ lift $ runExceptT $ execGeneratorT (classPath gState) $ putGState gState >> runT x
-            case y of
-                Left e  -> throwG e
-                Right s -> lift $ return $ encodedCodeLength s
-    defaultAltLength <- getAltLength defaultAltGen
-    altLengths <- mapM getAltLength altGens
+    defaultAltLength <- getGenLength runT defaultAltGen
+    altLengths <- mapM (getGenLength runT) altGens
     currentByte <- encodedCodeLength <$> getGState
     let -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
         instructionPadding = fromIntegral $ 4 - (currentByte `mod` 4)
