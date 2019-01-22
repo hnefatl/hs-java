@@ -339,6 +339,12 @@ loadString = i8 LDC1 . CString . fromString . encodeString
 throw :: MonadGenerator m => m ()
 throw = i0 ATHROW
 
+goto :: MonadGenerator m => Word16 -> m ()
+goto = i0 . GOTO
+
+instanceOf :: MonadGenerator m => B.ByteString -> m ()
+instanceOf = i1 INSTANCEOF . CClass
+
 -- |getAltLength compiles a branch in an isolated monad instance and returns how many bytes long it is
 getGenLength :: (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
     (t (GeneratorT m) () -> GeneratorT m ()) ->
