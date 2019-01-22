@@ -383,10 +383,11 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     altLengths <- map (gotoBytes +) <$> mapM (getGenLength runT) altGens
     let -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
         instructionPadding = fromIntegral $ 4 - (currentByte `mod` 4)
-        -- 1 byte for instruction, then padding, then 4 bytes for the default case and 8 bytes for each other case
+        -- 1 byte for instruction, then padding, then 4 bytes for the default case, 4 bytes for the number of other
+        -- cases, and 8 bytes each for the other cases
         instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 4 + numAlts * 8
         -- The offsets past the switch instruction of each branch
-        altOffsets = scanl (+) defaultAltLength altLengths -- Other branches come after the default branch
+        altOffsets = scanl (+) (instructionLength - 1 + defaultAltLength) altLengths
         -- How far to jump from the goto attached to each alt to get to just beyond everything
         defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
     -- Insert the switch statement, then the default alt, then the other alts
