@@ -379,7 +379,7 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     let -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
         instructionPadding = fromIntegral $ 4 - (currentByte `mod` 4)
         -- 1 byte for instruction, then padding, then 4 bytes for the default case and 8 bytes for each other case
-        instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 8 * numAlts
+        instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 4 + numAlts * 8
         -- The offsets past the switch instruction of each branch
         altOffsets = scanl (+) defaultAltLength altLengths -- Other branches come after the default branch
     -- Insert the switch statement, then the default alt, then the other alts
