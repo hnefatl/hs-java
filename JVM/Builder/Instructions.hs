@@ -391,7 +391,7 @@ lookupSwitchGeneral runT defaultAltGen alts = do
         -- How far to jump from the goto attached to each alt to get to just beyond everything
         defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
     -- Insert the switch statement, then the default alt, then the other alts
-    i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
+    i0 $ LOOKUPSWITCH instructionPadding (instructionLength - 1) (fromIntegral numAlts) (zip altKeys altOffsets)
     defaultAltGen >> goto defaultAltJump
     zipWithM_ (\gen jump -> gen >> goto jump) altGens altJumps
 
