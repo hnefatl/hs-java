@@ -386,7 +386,7 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     -- add 3 bytes to the length of each alt
     let gotoBytes = 3
         -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
-        instructionPadding = fromIntegral $ 4 - ((currentByte + 1) `mod` 4)
+        instructionPadding = fromIntegral $ ((4 - currentByte - 1) `mod` 4)
         -- 1 byte for instruction, then padding, then 4 bytes for the default case, 4 bytes for the number of other
         -- cases, and 8 bytes each for the other cases
         instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 4 + numAlts * 8

@@ -482,22 +482,24 @@ instance BinaryState Integer Instruction where
   put (GOTO x)        = put1 167 x
   put (JSR x)         = put1 168 x
   put  RET            = putByte 169
-  put (TABLESWITCH _ _ low high offs) = do
-                                   putByte 170
-                                   offset <- getOffset
-                                   let pads = padding offset
-                                   replicateM_ pads (putByte 0)
-                                   put low
-                                   put high
-                                   forM_ offs put
-  put (LOOKUPSWITCH _ def n pairs) = do
-                                   putByte 171
-                                   offset <- getOffset
-                                   let pads = padding offset
-                                   replicateM_ pads (putByte 0)
-                                   put def
-                                   put n
-                                   forM_ pairs put
+  put (TABLESWITCH pad _ low high offs) = do
+    putByte 170
+    offset <- getOffset
+    let pads = padding offset
+    unless (pad == pads) $ fail $ "Padding mismatch: manually set " <> show pad <> " but computed " <> show pads
+    replicateM_ (fromIntegral pads) (putByte 0)
+    put low
+    put high
+    forM_ offs put
+  put (LOOKUPSWITCH pad def n pairs) = do
+    putByte 171
+    offset <- getOffset
+    let pads = padding offset
+    unless (pad == pads) $ fail $ "Padding mismatch: manually set " <> show pad <> " but computed " <> show pads
+    replicateM_ (fromIntegral pads) (putByte 0)
+    put def
+    put n
+    forM_ pairs put
   put  IRETURN        = putByte 172
   put  LRETURN        = putByte 173
   put  FRETURN        = putByte 174
