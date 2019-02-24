@@ -177,9 +177,11 @@ instance (HasSignature a) => Show (NameType a) where
 deriving instance HasSignature a => Eq (NameType a)
 
 instance HasSignature a => Binary (NameType a) where
-  put (NameType n t) = putLazyByteString n >> put t
+  put (NameType n t) = putInt64be (fromIntegral $ B.length n) >> putLazyByteString n >> put t
 
-  get = NameType <$> get <*> get
+  get = do
+    n <- getInt64be
+    NameType <$> getLazyByteString n <*> get
 
 -- | Constant pool item
 -- Follows https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.4
