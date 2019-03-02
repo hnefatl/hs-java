@@ -133,8 +133,8 @@ data Instruction =
   | DCONST_1       -- ^ 15
   | BIPUSH Word8   -- ^ 16
   | SIPUSH Word16  -- ^ 17
-  | LDC1 Word8     -- ^ 18
-  | LDC2 Word16    -- ^ 19
+  | LDC Word8     -- ^ 18
+  | LDCW Word16    -- ^ 19
   | LDC2W Word16   -- ^ 20
   | ILOAD Word8    -- ^ 21
   | LLOAD Word8    -- ^ 22
@@ -367,8 +367,8 @@ instance BinaryState Integer Instruction where
   put  DCONST_1    = putByte 15
   put (BIPUSH x)   = put1 16 x
   put (SIPUSH x)   = put1 17 x
-  put (LDC1 x)     = put1 18 x
-  put (LDC2 x)     = put1 19 x
+  put (LDC x)      = put1 18 x
+  put (LDCW x)     = put1 19 x
   put (LDC2W x)    = put1 20 x
   put (ILOAD x)    = put1 21 x
   put (LLOAD x)    = put1 22 x
@@ -552,8 +552,8 @@ instance BinaryState Integer Instruction where
       15 -> return DCONST_1
       16 -> BIPUSH <$> get
       17 -> SIPUSH <$> get
-      18 -> LDC1 <$> get
-      19 -> LDC2 <$> get
+      18 -> LDC <$> get
+      19 -> LDCW <$> get
       20 -> LDC2W <$> get
       21 -> ILOAD <$> get
       22 -> LLOAD <$> get

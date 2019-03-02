@@ -59,10 +59,10 @@ bipush x = i0 (BIPUSH x)
 sipush :: MonadGenerator m => Word16 -> m ()
 sipush x = i0 (SIPUSH x)
 
-ldc1 :: MonadGenerator m => Constant Direct -> m ()
-ldc1 = i8 LDC1
-ldc2 :: MonadGenerator m => Constant Direct -> m ()
-ldc2 = i1 LDC2
+ldc :: MonadGenerator m => Constant Direct -> m ()
+ldc = i8 LDC
+ldcw :: MonadGenerator m => Constant Direct -> m ()
+ldcw = i1 LDCW
 ldc2w :: MonadGenerator m => Constant Direct -> m ()
 ldc2w = i1 LDC2W
 iload :: MonadGenerator m => Word8 -> m ()
@@ -336,7 +336,10 @@ putField :: MonadGenerator m => B.ByteString -> NameType (Field Direct) -> m ()
 putField cls fld = i1 PUTFIELD (CField cls fld)
 
 loadString :: MonadGenerator m => String -> m ()
-loadString = i8 LDC1 . CString . fromString . encodeString
+loadString s = do
+    ix <- addToPool $ CString $ fromString $ encodeString s
+    -- If the load index fits in a short load then use it, otherwise use a wide load.
+    if ix <= fromIntegral (maxBound :: Word8) then i0 $ LDC (fromIntegral ix) else i0 $ LDCW ix
 
 throw :: MonadGenerator m => m ()
 throw = i0 ATHROW
