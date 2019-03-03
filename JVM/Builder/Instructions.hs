@@ -7,7 +7,7 @@
 module JVM.Builder.Instructions where
 
 import           Codec.Binary.UTF8.String  (encodeString)
-import           Control.Monad             (zipWithM_, replicateM_)
+import           Control.Monad             (replicateM_, unless)
 import           Control.Monad.Except      (runExceptT)
 import           Control.Monad.Identity    (IdentityT(..), runIdentityT)
 import           Control.Monad.Trans.Class (MonadTrans, lift)
@@ -360,10 +360,10 @@ getGenLength :: (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator
 getGenLength leadingBytes runT xs = do
     gState <- getGState
     let generators = scanl (\s x -> s >> runT x) (putGState gState >> replicateM_ (fromIntegral leadingBytes) nop) xs
-    lengths <- lift $ lift $ runExceptT $ mapM (execGeneratorT (classPath gState)) generators
-    case lengths of
+    states <- lift $ lift $ runExceptT $ mapM (execGeneratorT (classPath gState)) generators
+    case states of
         Left e  -> throwG e
-        Right ls -> case map encodedCodeLength ls of
+        Right ss -> case map encodedCodeLength ss of
             [] -> throwG $ OtherError "Internal error"
             currentLength:genLengths -> lift $ return $ zipWith (-) genLengths (currentLength:genLengths)
 
@@ -388,29 +388,35 @@ lookupSwitchGeneral runT defaultAltGen alts = do
     -- We're going to insert a goto at the end of each alt to jump to the next instruction past the end of the case so
     -- add 3 bytes to the length of each alt
     let gotoBytes = 3
-        -- Compute the length of the lookupswitch instruction, so we know how far to offset the jumps by
-        instructionPadding = fromIntegral $ ((4 - currentByte - 1) `mod` 4)
+        -- Compute the padding required in the lookupswitch instruction. Padding comes after the instruction byte, so we
+        -- use (currentByte + 1) instead of currentByte
+        instructionPadding = fromIntegral $ ((4 - (currentByte + 1)) `mod` 4)
         -- 1 byte for instruction, then padding, then 4 bytes for the default case, 4 bytes for the number of other
         -- cases, and 8 bytes each for the other cases
         instructionLength = fromIntegral $ 1 + instructionPadding + 4 + 4 + numAlts * 8
         -- Dummy generators with a nonsense jump at the end, to produce the same lengths as when we insert the real
         -- jumps
-        dummyGens = (defaultAltGen >> goto 0):map (\a -> a >> goto 0) altGens
+        dummyGens = (defaultAltGen >> goto 0):map (>> goto 0) altGens
     lengths <- getGenLength instructionLength runT dummyGens
     case lengths of
         [] -> throwG $ OtherError "Internal error?"
         defaultAltLength:altLengths -> do
-            -- Insert the switch statement, then the default alt, then the other alts
-            i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
-            defaultAltGen >> goto defaultAltJump
-            zipWithM_ (\gen jump -> gen >> goto jump) altGens altJumps
-            where
-                -- The offsets past the switch instruction of each branch
+            let -- The offsets past the switch instruction of each non-default branch
                 altOffsets = scanl (+) (instructionLength + defaultAltLength) altLengths
                 -- How far to jump from the goto attached to each alt to get to just beyond everything
                 defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
+            -- Insert the switch statement, then the default alt, then the other alts
+            i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
+            let f oldAction (action, jump, expectedLength) = oldAction >> do
+                    startPosition <- getMethodLength
+                    runT action >> goto jump
+                    endPosition <- getMethodLength
+                    let actualLength = endPosition - startPosition
+                    unless (actualLength == expectedLength) $ throwG $ OtherError $
+                        "Alt length. Expected " <> show expectedLength <> " got " <> show actualLength
+            lift $ foldl f (pure ()) (zip3 (defaultAltGen:altGens) (defaultAltJump:altJumps) lengths)
 
-lookupSwitch :: Generator () -> [(Word32, Generator ())] -> Generator ()
-lookupSwitch defaultAltGen alts = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
+lookupSwitchT :: Monad m => GeneratorT m () -> [(Word32, GeneratorT m ())] -> GeneratorT m ()
+lookupSwitchT defaultAltGen altGens = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
     where defaultAltGen' = IdentityT defaultAltGen
-          alts' = map (\(i,x) -> (i, IdentityT x)) alts
+          alts' = map (\(i,x) -> (i, IdentityT x)) altGens
