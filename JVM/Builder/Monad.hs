@@ -36,6 +36,7 @@ module JVM.Builder.Monad (
     generate, generateT, generateIO,
     encodedCodeLength,
     generateCodeLength,
+    getMethodLength,
     genCode
   ) where
 
@@ -349,6 +350,9 @@ encodedCodeLength st = fromIntegral . B.length . encodeInstructions $ head $ gen
 
 generateCodeLength :: Monad m => GeneratorT m a -> ExceptT GeneratorException m Word32
 generateCodeLength x = encodedCodeLength <$> execGeneratorT [] x
+
+getMethodLength :: MonadGenerator m => m Word32
+getMethodLength = encodedCodeLength <$> getGState
 
 -- | Convert Generator state to method Code.
 genCode :: GState -> Code
