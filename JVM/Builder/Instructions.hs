@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | This module exports shortcuts for some of JVM instructions (which are defined in JVM.Assembler).
 -- These functions get Constants, put them into constants pool and generate instruction using index
@@ -352,18 +353,35 @@ instanceOf = i1 INSTANCEOF . CClass
 
 -- |getAltLength compiles a sequence of generators in an isolated monad instance and returns how many bytes long each
 -- one is, taking into account variable length instructions.
-getGenLength :: (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
+getGenLength :: forall t m. (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
     Word32 ->
-    (t (GeneratorT m) () -> GeneratorT m ()) ->
+    (forall a. t (GeneratorT m) a -> GeneratorT m a) ->
     [t (GeneratorT m) ()] ->
     t (GeneratorT m) [Word32]
 getGenLength leadingBytes runT xs = do
     gState <- getGState
-    let generators = scanl (\s x -> s >> runT x) (putGState gState >> replicateM_ (fromIntegral leadingBytes) nop) xs
-    states <- lift $ lift $ runExceptT $ mapM (execGeneratorT (classPath gState)) generators
-    case states of
-        Left e  -> throwG e
-        Right ss -> case map encodedCodeLength ss of
+    --let generators = scanl (\s x -> s >> x) (putGState gState >> replicateM_ (fromIntegral leadingBytes) nop) xs
+    --states <- lift $ lift $ runExceptT $ mapM (execGeneratorT (classPath gState)) generators
+    let f :: t (GeneratorT m) [Word32] -> t (GeneratorT m) () -> t (GeneratorT m) [Word32]
+        f oldAction action = do
+            lengths <- oldAction
+            action
+            l <- getMethodLength
+            return $ l:lengths
+        initialState = do
+            putGState gState
+            replicateM_ (fromIntegral leadingBytes) nop
+            initialLength <- getMethodLength
+            return [initialLength]
+        -- Compute the lengths of each generator in a sandboxed generator monad instance
+        lengthGen = do
+            putGState gState
+            replicateM_ (fromIntegral leadingBytes) nop
+            foldl f initialState xs
+    lengthResult <- lift $ lift $ runExceptT $ evalGeneratorT (classPath gState) $ runT lengthGen
+    case lengthResult of
+        Left err -> throwG err
+        Right lengths -> case reverse lengths of
             [] -> throwG $ OtherError "Internal error"
             currentLength:genLengths -> lift $ return $ zipWith (-) genLengths (currentLength:genLengths)
 
@@ -373,9 +391,9 @@ getGenLength leadingBytes runT xs = do
 -- distance between the switch instruction and where the alt will begin.
 -- This is super general so it can be used anywhere in a monad transformer stack. See `lookupSwitch` for a more boring
 -- type signature.
-lookupSwitchGeneral ::
+lookupSwitchGeneral :: forall t m.
     (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
-    (t (GeneratorT m) () -> GeneratorT m ()) ->
+    (forall a. t (GeneratorT m) a -> GeneratorT m a) ->
     t (GeneratorT m) () ->
     [(Word32, t (GeneratorT m) ())] ->
     t (GeneratorT m) ()
@@ -407,9 +425,12 @@ lookupSwitchGeneral runT defaultAltGen alts = do
                 defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
             -- Insert the switch statement, then the default alt, then the other alts
             i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
-            let f oldAction (action, jump, expectedLength) = oldAction >> do
+            let f :: t (GeneratorT m) () -> (t (GeneratorT m) (), Word16, Word32) -> t (GeneratorT m) ()
+                f oldAction (action, jump, expectedLength) = do
+                    oldAction
                     startPosition <- getMethodLength
-                    action >> goto jump
+                    action
+                    goto jump
                     endPosition <- getMethodLength
                     let actualLength = endPosition - startPosition
                     unless (actualLength == expectedLength) $ throwG $ OtherError $
