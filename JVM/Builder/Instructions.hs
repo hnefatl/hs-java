@@ -409,12 +409,12 @@ lookupSwitchGeneral runT defaultAltGen alts = do
             i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
             let f oldAction (action, jump, expectedLength) = oldAction >> do
                     startPosition <- getMethodLength
-                    runT action >> goto jump
+                    action >> goto jump
                     endPosition <- getMethodLength
                     let actualLength = endPosition - startPosition
                     unless (actualLength == expectedLength) $ throwG $ OtherError $
                         "Alt length. Expected " <> show expectedLength <> " got " <> show actualLength
-            lift $ foldl f (pure ()) (zip3 (defaultAltGen:altGens) (defaultAltJump:altJumps) lengths)
+            foldl f (pure ()) (zip3 (defaultAltGen:altGens) (defaultAltJump:altJumps) lengths)
 
 lookupSwitchT :: Monad m => GeneratorT m () -> [(Word32, GeneratorT m ())] -> GeneratorT m ()
 lookupSwitchT defaultAltGen altGens = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
