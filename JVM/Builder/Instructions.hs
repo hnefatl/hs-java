@@ -7,7 +7,7 @@
 module JVM.Builder.Instructions where
 
 import           Codec.Binary.UTF8.String  (encodeString)
-import           Control.Monad             (zipWithM_, replicateM_)
+import           Control.Monad             (replicateM_, unless)
 import           Control.Monad.Except      (runExceptT)
 import           Control.Monad.Identity    (IdentityT(..), runIdentityT)
 import           Control.Monad.Trans.Class (MonadTrans, lift)
@@ -407,8 +407,14 @@ lookupSwitchGeneral runT defaultAltGen alts = do
                 defaultAltJump:altJumps = map fromIntegral $ scanl (-) (gotoBytes + sum altLengths) altLengths
             -- Insert the switch statement, then the default alt, then the other alts
             i0 $ LOOKUPSWITCH instructionPadding instructionLength (fromIntegral numAlts) (zip altKeys altOffsets)
-            defaultAltGen >> goto defaultAltJump
-            zipWithM_ (\gen jump -> gen >> goto jump) altGens altJumps
+            let f oldAction (action, jump, expectedLength) = oldAction >> do
+                    startPosition <- getMethodLength
+                    action >> goto jump
+                    endPosition <- getMethodLength
+                    let actualLength = endPosition - startPosition
+                    unless (actualLength == expectedLength) $ throwG $ OtherError $
+                        "Alt length. Expected " <> show expectedLength <> " got " <> show actualLength
+            foldl f (pure ()) (zip3 (defaultAltGen:altGens) (defaultAltJump:altJumps) lengths)
 
 lookupSwitchT :: Monad m => GeneratorT m () -> [(Word32, GeneratorT m ())] -> GeneratorT m ()
 lookupSwitchT defaultAltGen altGens = runIdentityT $ lookupSwitchGeneral runIdentityT defaultAltGen' alts'
