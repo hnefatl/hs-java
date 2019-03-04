@@ -353,12 +353,12 @@ instanceOf = i1 INSTANCEOF . CClass
 
 -- |getAltLength compiles a sequence of generators in an isolated monad instance and returns how many bytes long each
 -- one is, taking into account variable length instructions.
-getGenLength :: forall t m. (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
+getGenLengthGeneral :: forall t m. (MonadTrans t, Monad m, Monad (t (GeneratorT m)), MonadGenerator (t (GeneratorT m))) =>
     Word32 ->
     (forall a. t (GeneratorT m) a -> GeneratorT m a) ->
     [t (GeneratorT m) ()] ->
     t (GeneratorT m) [Word32]
-getGenLength leadingBytes runT xs = do
+getGenLengthGeneral leadingBytes runT xs = do
     gState <- getGState
     --let generators = scanl (\s x -> s >> x) (putGState gState >> replicateM_ (fromIntegral leadingBytes) nop) xs
     --states <- lift $ lift $ runExceptT $ mapM (execGeneratorT (classPath gState)) generators
@@ -385,6 +385,9 @@ getGenLength leadingBytes runT xs = do
             [] -> throwG $ OtherError "Internal error"
             currentLength:genLengths -> lift $ return $ zipWith (-) genLengths (currentLength:genLengths)
 
+getGenLength :: Monad m => Word32 -> [GeneratorT m ()] -> GeneratorT m [Word32]
+getGenLength leadingBytes gens = runIdentityT $ getGenLengthGeneral leadingBytes runIdentityT gens'
+    where gens' = map IdentityT gens
 
 -- |Inserting a switch is hard: the lookupSwitch instruction contains information dependent on information compiled
 -- after it, so we need to "pretend" to compile the branches to get their byte lengths, to compute the relative byte
@@ -415,7 +418,7 @@ lookupSwitchGeneral runT defaultAltGen alts = do
         -- Dummy generators with a nonsense jump at the end, to produce the same lengths as when we insert the real
         -- jumps
         dummyGens = (defaultAltGen >> goto 0):map (>> goto 0) altGens
-    lengths <- getGenLength instructionLength runT dummyGens
+    lengths <- getGenLengthGeneral instructionLength runT dummyGens
     case lengths of
         [] -> throwG $ OtherError "Internal error?"
         defaultAltLength:altLengths -> do
