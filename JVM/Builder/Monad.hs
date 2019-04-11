@@ -386,7 +386,8 @@ generateT cp name gen = do
     return $ (x,) $ d {
         constsPoolSize = fromIntegral $ M.size (currentPool res),
         constsPool = currentPool res,
-        accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
+        -- ACC_SYNCHRONIZED for methods has the same values as ACC_SUPER for classes
+        accessFlags = S.fromList [ACC_PUBLIC, ACC_SYNCHRONIZED],
         thisClass = name,
         superClass = "java/lang/Object",
         classMethodsCount = fromIntegral $ length (doneMethods res),
