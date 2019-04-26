@@ -5,8 +5,8 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DeriveGeneric         #-}
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
 module JVM.ClassFile
@@ -51,6 +51,7 @@ import           Control.Monad
 import           Control.Monad.Except     (Except, liftEither, runExcept)
 import qualified Control.Monad.State      as St
 import           Control.Monad.Trans      (lift)
+import           Control.DeepSeq          (NFData)
 import           Data.Bifunctor           (bimap)
 import           Data.Binary
 import           Data.Binary.Get
@@ -63,6 +64,7 @@ import           Data.Default
 import           Data.List
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
+import           GHC.Generics             (Generic)
 
 -- $about
 --
@@ -120,6 +122,8 @@ data instance Attributes File = AP {attributesList :: [Attribute]}
 
 instance Default (Attributes File) where
   def = AP []
+deriving instance Generic (Attributes File)
+instance NFData (Attributes File)
 
 -- | At Direct stage, attributes are represented as a Map.
 data instance Attributes Direct = AR (M.Map B.ByteString B.ByteString)
@@ -213,7 +217,8 @@ data MethodHandleKind =
     | InvokeSpecial
     | NewInvokeSpecial
     | InvokeInterface
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic)
+instance NFData MethodHandleKind
 mhtToWord :: MethodHandleKind -> Word8
 mhtToWord GetField         = 1
 mhtToWord GetStatic        = 2
@@ -292,9 +297,15 @@ deriving instance Eq (Class Direct)
 deriving instance Show (Class File)
 deriving instance Show (Class Direct)
 
+deriving instance Generic (Class File)
+instance NFData (Class File)
+
 deriving instance Eq (Constant File)
 deriving instance Eq (Constant Direct)
 deriving instance Show (Constant File)
+
+deriving instance Generic (Constant File)
+instance NFData (Constant File)
 
 -- | Default (empty) class file definition.
 defaultClass :: (Default (AccessFlags stage), Default (Link stage B.ByteString), Default (Attributes stage))
@@ -598,6 +609,8 @@ deriving instance Eq (Field File)
 deriving instance Eq (Field Direct)
 deriving instance Show (Field File)
 deriving instance Show (Field Direct)
+deriving instance Generic (Field File)
+instance NFData (Field File)
 
 lookupField :: B.ByteString -> Class Direct -> Maybe (Field Direct)
 lookupField name cls = look (classFields cls)
@@ -638,6 +651,8 @@ deriving instance Eq (Method File)
 deriving instance Eq (Method Direct)
 deriving instance Show (Method File)
 deriving instance Show (Method Direct)
+deriving instance Generic (Method File)
+instance NFData (Method File)
 
 methodNameType :: Method Direct -> NameType (Method Direct)
 methodNameType m = NameType (methodName m) (methodSignature m)
@@ -677,7 +692,8 @@ data Attribute = Attribute {
   attributeName   :: Word16,
   attributeLength :: Word32,
   attributeValue  :: B.ByteString }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+instance NFData Attribute
 
 instance BinaryState.BinaryState Integer Attribute where
   put a = do
