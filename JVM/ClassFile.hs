@@ -52,12 +52,13 @@ import           Control.Monad.Except     (Except, liftEither, runExcept)
 import qualified Control.Monad.State      as St
 import           Control.Monad.Trans      (lift)
 import           Control.DeepSeq          (NFData)
-import           Data.Bifunctor           (bimap)
+import           Data.Bifunctor           (bimap, second)
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.IEEE754
 import           Data.Binary.Put
 import qualified Data.BinaryState         as BinaryState
+import qualified Data.Bimap               as Bimap
 import qualified Data.ByteString.Lazy     as B
 import           Data.Char
 import           Data.Default
@@ -65,6 +66,7 @@ import           Data.List
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
 import           GHC.Generics             (Generic)
+import           JVM.Common               ()
 
 -- $about
 --
@@ -118,7 +120,7 @@ data family Attributes stage
 
 -- | At File stage, attributes are represented as list of Attribute structures.
 data instance Attributes File = AP {attributesList :: [Attribute]}
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 instance Default (Attributes File) where
   def = AP []
@@ -127,7 +129,7 @@ instance NFData (Attributes File)
 
 -- | At Direct stage, attributes are represented as a Map.
 data instance Attributes Direct = AR (M.Map B.ByteString B.ByteString)
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 instance Default (Attributes Direct) where
   def = AR M.empty
@@ -160,8 +162,7 @@ data AccessFlag =
   deriving (Eq, Show, Ord, Enum)
 
 -- | Fields and methods have signatures.
-class (Binary (Signature a), Show (Signature a), Eq (Signature a))
-    => HasSignature a where
+class (Binary (Signature a), Show (Signature a), Eq (Signature a), Ord (Signature a)) => HasSignature a where
   type Signature a
 
 instance HasSignature (Field Direct) where
@@ -178,7 +179,8 @@ data NameType a = NameType {
 instance (HasSignature a) => Show (NameType a) where
   show (NameType n t) = toString n ++ ": " ++ show t
 
-deriving instance HasSignature a => Eq (NameType a)
+deriving instance (HasSignature a, Eq a) => Eq (NameType a)
+deriving instance (HasSignature a, Ord a) => Ord (NameType a)
 
 instance HasSignature a => Binary (NameType a) where
   put (NameType n t) = putInt64be (fromIntegral $ B.length n) >> putLazyByteString n >> put t
@@ -205,6 +207,8 @@ data Constant stage =
   | CMethodHandle MethodHandleKind (Link stage B.ByteString) (Link stage (Method stage)) -- handle type, class, method
   | CMethodType (Link stage B.ByteString)
   | CInvokeDynamic Word16 (Link stage (NameType (Method stage)))
+deriving instance Ord (Constant Direct)
+deriving instance Ord (Constant File)
 
 -- https://docs.oracle.com/javase/8/docs/api/java/lang/invoke/MethodHandleInfo.html
 data MethodHandleKind =
@@ -270,7 +274,7 @@ instance Show (Constant Direct) where
   show (CInvokeDynamic t m)    = "InvokeDynamic " ++ show t ++ ":" ++ show m
 
 -- | Constant pool
-type Pool stage = M.Map Word16 (Constant stage)
+type Pool stage = Bimap.Bimap Word16 (Constant stage)
 
 -- | Generic .class file format
 data Class stage = Class {
@@ -315,7 +319,7 @@ defaultClass = Class {
   minorVersion = 0,
   majorVersion = 52,
   constsPoolSize = 0,
-  constsPool = def,
+  constsPool = Bimap.empty,
   accessFlags = def,
   thisClass = def,
   superClass = def,
@@ -526,9 +530,9 @@ long _           = False
 
 putPool :: Pool File -> Put
 putPool pool = do
-    let list = M.elems pool
+    let list = Bimap.elems pool
         d = length $ filter long list
-    putWord16be $ fromIntegral (M.size pool + d + 1)
+    putWord16be $ fromIntegral (Bimap.size pool + d + 1)
     forM_ list putC
   where
     putC (CClass i)            = putWord8 7 >> put i
@@ -549,14 +553,14 @@ putPool pool = do
 
 getPool :: Word16 -> Get (Pool File)
 getPool n = do
-    items <- M.fromList <$> St.evalStateT go 1
+    items <- St.evalStateT go 1
     -- Add the class names to the CMethodHandle constants
-    let addClasses (CMethodHandle t _ b) = case M.lookup b items of
+    let addClasses (CMethodHandle t _ b) = case fmap snd $ find ((== b) . fst) items of
             Just (CClass name) -> CMethodHandle t name b
             Just _             -> error "Found non-class for MethodHandle"
             Nothing            -> error "No class found for MethodHandle"
         addClasses x = x
-        items' = M.map addClasses items
+        items' = Bimap.fromList $ map (second addClasses) items
     return items'
   where
     go :: St.StateT Word16 Get [(Word16, Constant File)]
@@ -607,6 +611,8 @@ data Field stage = Field {
 
 deriving instance Eq (Field File)
 deriving instance Eq (Field Direct)
+deriving instance Ord (Field File)
+deriving instance Ord (Field Direct)
 deriving instance Show (Field File)
 deriving instance Show (Field Direct)
 deriving instance Generic (Field File)
@@ -649,6 +655,8 @@ data Method stage = Method {
 
 deriving instance Eq (Method File)
 deriving instance Eq (Method Direct)
+deriving instance Ord (Method File)
+deriving instance Ord (Method Direct)
 deriving instance Show (Method File)
 deriving instance Show (Method Direct)
 deriving instance Generic (Method File)
@@ -692,7 +700,7 @@ data Attribute = Attribute {
   attributeName   :: Word16,
   attributeLength :: Word32,
   attributeValue  :: B.ByteString }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Ord, Show, Generic)
 instance NFData Attribute
 
 instance BinaryState.BinaryState Integer Attribute where

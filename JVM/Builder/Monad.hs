@@ -6,7 +6,6 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE UndecidableInstances       #-}
 -- | This module defines Generate[IO] monad, which helps generating JVM code and
 -- creating Java class constants pool.
@@ -45,18 +44,18 @@ import           Control.Monad.Identity
 import           Control.Monad.Reader
 import           Control.Monad.State        as St
 import qualified Control.Monad.State.Strict as StS
+import qualified Data.Bimap                 as Bimap
 import           Data.Binary                hiding (get, put)
 import qualified Data.ByteString.Lazy       as B
+import           Data.Foldable              (toList)
 import qualified Data.Map                   as M
-import qualified Data.Set                   as S
 import qualified Data.Sequence              as Seq
-import Data.Foldable (toList)
+import qualified Data.Set                   as S
 import           Prelude
 
 import           Java.ClassPath
 import           JVM.Assembler
 import           JVM.ClassFile
-import           JVM.Common
 import           JVM.Exceptions
 
 -- | Generator state
@@ -77,7 +76,7 @@ data GState = GState {
 emptyGState ::  GState
 emptyGState = GState {
   generated = [],
-  currentPool = M.empty,
+  currentPool = Bimap.empty,
   nextPoolIndex = 1,
   doneMethods = [],
   fields = [],
@@ -171,15 +170,14 @@ addItem c = do
         Just i -> return i
         Nothing -> do
             i <- getsGState nextPoolIndex
-            let pool' = M.insert i c pool
+            let pool' = Bimap.insert i c pool
                 i' = if long c then i+2 else i+1
             modifyGState $ \st -> st { currentPool = pool', nextPoolIndex = i' }
             return i
 
 -- | Lookup in a pool
 lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
-lookupPool c pool =
-  fromIntegral `fmap` mapFindIndex (== c) pool
+lookupPool c pool = fromIntegral <$> Bimap.lookupR c pool
 
 addNT :: (MonadGenerator m, HasSignature a) => NameType a -> m Word16
 addNT (NameType name sig) = do
@@ -386,7 +384,7 @@ generateT cp name gen = do
         d = defaultClass :: Class Direct
     (x, res) <- runGeneratorT cp generator
     return $ (x,) $ d {
-        constsPoolSize = fromIntegral $ M.size (currentPool res),
+        constsPoolSize = fromIntegral $ Bimap.size (currentPool res),
         constsPool = currentPool res,
         -- ACC_SYNCHRONIZED for methods has the same values as ACC_SUPER for classes
         accessFlags = S.fromList [ACC_PUBLIC, ACC_SYNCHRONIZED],

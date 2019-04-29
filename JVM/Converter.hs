@@ -18,11 +18,14 @@ module JVM.Converter
 
 import           Control.Monad.Except       (MonadError, throwError)
 import           Data.Binary
+import           Control.Applicative ((<|>))
 import           Data.Bits
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.ByteString.Lazy.Char8 ()
 import           Data.Default               ()
 import           Data.List
+import qualified Data.Bimap                 as Bimap
+import           Data.Bimap                 ((!))
 import qualified Data.Map                   as M
 import qualified Data.Set                   as S
 
@@ -47,7 +50,7 @@ classFile2Direct Class {..} =
       superName = className $ pool ! superClass
       d = defaultClass :: Class Direct
   in d {
-      constsPoolSize = fromIntegral (M.size pool),
+      constsPoolSize = fromIntegral (Bimap.size pool),
       constsPool = pool,
       accessFlags = accessFile2Direct accessFlags,
       thisClass = className $ pool ! thisClass,
@@ -65,7 +68,7 @@ classDirect2File :: Class Direct -> Class File
 classDirect2File Class {..} =
   let d = defaultClass :: Class File
   in d {
-    constsPoolSize = fromIntegral (M.size poolInfo + 1),
+    constsPoolSize = fromIntegral (Bimap.size poolInfo + 1),
     constsPool = poolInfo,
     accessFlags = accessDirect2File accessFlags,
     thisClass = force "this" $ poolClassIndex poolInfo thisClass,
@@ -86,7 +89,7 @@ classDirect2File Class {..} =
 poolDirect2File :: Pool Direct -> Pool File
 poolDirect2File pool = result
   where
-    result = M.map cpInfo pool
+    result = bimapMap cpInfo pool
 
     cpInfo :: Constant Direct -> Constant File
     cpInfo (CClass name) = CClass (force "class" $ poolIndex result name)
@@ -110,48 +113,31 @@ poolDirect2File pool = result
 
 -- | Find index of given string in the list of constants
 poolIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
-poolIndex list name = case mapFindIndex test list of
-                        Nothing -> throwError (NoItemInPool name)
-                        Just i  ->  return $ fromIntegral i
-  where
-    test (CUTF8 s)    | s == name = True
-    test (CUnicode s) | s == name = True
-    test _            = False
+poolIndex pool name = case Bimap.lookupR (CUTF8 name) pool <|> Bimap.lookupR (CUnicode name) pool of
+    Nothing -> throwError (NoItemInPool name)
+    Just i  ->  return $ fromIntegral i
 
 -- | Find index of given string in the list of constants
 poolClassIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
-poolClassIndex list name = case mapFindIndex checkString list of
-                        Nothing -> throwError (NoItemInPool name)
-                        Just i ->  case mapFindIndex (checkClass $ fromIntegral i) list of
-                                     Nothing -> throwError (NoItemInPool i)
-                                     Just j  -> return $ fromIntegral j
-  where
-    checkString (CUTF8 s)    | s == name = True
-    checkString (CUnicode s) | s == name = True
-    checkString _            = False
-
-    checkClass i (CClass x) | i == x = True
-    checkClass _ _          = False
+poolClassIndex pool name = do
+    i <- poolIndex pool name
+    case Bimap.lookupR (CClass $ fromIntegral i) pool of
+        Nothing -> throwError (NoItemInPool i)
+        Just j  -> return $ fromIntegral j
 
 poolNTIndex :: (MonadError GeneratorException m, HasSignature a) => Pool File -> NameType a -> m Word16
-poolNTIndex list nt = do
-    ni <- poolIndex list (ntName nt)
-    ti <- poolIndex list (byteString $ ntSignature nt)
-    let check (CNameType n' t')
-            | (ni == n') && (ti == t') = True
-        check _                  = False
-    case mapFindIndex check list of
+poolNTIndex pool nt = do
+    ni <- poolIndex pool (ntName nt)
+    ti <- poolIndex pool (byteString $ ntSignature nt)
+    case Bimap.lookupR (CNameType ni ti) pool of
         Nothing -> throwError (NoItemInPool nt)
         Just i  -> return $ fromIntegral i
 
 poolMethodIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> Method Direct -> m Word16
-poolMethodIndex list cls m = do
-    si <- poolNTIndex list (methodNameType m)
-    ci <- poolClassIndex list cls
-    let check (CMethod c' s')
-            | (ci == c') && (si == s') = True
-        check _                  = False
-    case mapFindIndex check list of
+poolMethodIndex pool cls m = do
+    si <- poolNTIndex pool (methodNameType m)
+    ci <- poolClassIndex pool cls
+    case Bimap.lookupR (CMethod ci si) pool of
         Nothing -> throwError (NoItemInPool m)
         Just i  -> return $ fromIntegral i
 
@@ -187,9 +173,9 @@ poolFile2Direct :: Pool File -> Pool Direct
 poolFile2Direct ps = pool
   where
     pool :: Pool Direct
-    pool = M.map convert ps
+    pool = bimapMap convert ps
 
-    convertNameType :: (HasSignature a) => Word16 -> NameType a
+    convertNameType :: HasSignature a => Word16 -> NameType a
     convertNameType i = case pool ! i of
         CNameType n s -> NameType n (decode s)
         _             -> error $ "Unexpected: " ++ show i

@@ -3,7 +3,7 @@ module JVM.Dump where
 
 import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.Map                   as M
+import Data.Bimap (assocs)
 import           Text.Printf
 
 import           JVM.Assembler
@@ -17,7 +17,7 @@ dumpClass cls = do
     putStr "Class: "
     B.putStrLn (thisClass cls)
     putStrLn "Constants pool:"
-    forM_ (M.assocs $ constsPool cls) $ \(i, c) ->
+    forM_ (assocs $ constsPool cls) $ \(i, c) ->
       putStrLn $ printf "  #%d:\t%s" i (show c)
     putStrLn "Methods:"
     forM_ (classMethods cls) $ \m -> do

@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
 
 -- | This module exports shortcuts for some of JVM instructions (which are defined in JVM.Assembler).
 -- These functions get Constants, put them into constants pool and generate instruction using index
@@ -382,7 +382,7 @@ getGenLengthGeneral leadingBytes runT xs = do
     case lengthResult of
         Left err -> throwG err
         Right lengths -> case reverse lengths of
-            [] -> throwG $ OtherError "Internal error"
+            []                       -> throwG $ OtherError "Internal error"
             currentLength:genLengths -> lift $ return $ zipWith (-) genLengths (currentLength:genLengths)
 
 getGenLength :: Monad m => Word32 -> [GeneratorT m ()] -> GeneratorT m [Word32]

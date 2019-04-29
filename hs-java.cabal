@@ -42,7 +42,7 @@ library
                    Java.META.Spec
                    Java.META.Parser
 
-  Build-Depends:  base >= 3 && <= 5, containers, binary, mtl, transformers, directory, filepath, utf8-string, array, bytestring, data-binary-ieee754, binary-state, data-default >= 0.5.0, MissingH, zip, Glob, parsec >= 3 && <4, deepseq
+  Build-Depends:  base >= 3 && <= 5, containers, binary, mtl, transformers, directory, filepath, utf8-string, array, bytestring, data-binary-ieee754, binary-state, data-default >= 0.5.0, MissingH, zip, Glob, parsec >= 3 && <4, deepseq, bimap
 
   ghc-options: -Wall
 
