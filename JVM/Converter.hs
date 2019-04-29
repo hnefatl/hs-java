@@ -16,7 +16,10 @@ module JVM.Converter
   )
   where
 
+import Data.Maybe (catMaybes)
+import           Control.Monad              (when, unless, forM)
 import           Control.Monad.Except       (MonadError, throwError)
+import           Control.Monad.State.Strict (State, execState, state, gets, modify)
 import           Data.Binary
 import           Control.Applicative ((<|>))
 import           Data.Bits
@@ -87,29 +90,43 @@ classDirect2File Class {..} =
     to pairs = AP (map (attrInfo poolInfo) pairs)
 
 poolDirect2File :: Pool Direct -> Pool File
-poolDirect2File pool = result
-  where
-    result = bimapMap cpInfo pool
-
-    cpInfo :: Constant Direct -> Constant File
-    cpInfo (CClass name) = CClass (force "class" $ poolIndex result name)
-    cpInfo (CField cls name) = CField (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
-    cpInfo (CMethod cls name) =
-      CMethod (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
-    cpInfo (CIfaceMethod cls name) =
-      CIfaceMethod (force "iface method a" $ poolIndex result cls) (force "iface method b" $ poolNTIndex result name)
-    cpInfo (CString s) = CString (force "string" $ poolIndex result s)
-    cpInfo (CInteger x) = CInteger x
-    cpInfo (CFloat x) = CFloat x
-    cpInfo (CLong x) = CLong (fromIntegral x)
-    cpInfo (CDouble x) = CDouble x
-    cpInfo (CNameType n t) = CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
-    cpInfo (CUTF8 s) = CUTF8 s
-    cpInfo (CUnicode s) = CUnicode s
-    cpInfo (CMethodHandle t cls b) = CMethodHandle t clsIndex (force "method" $ poolMethodIndex result cls b)
-        where clsIndex = force "classIndex" $ poolClassIndex result cls
-    cpInfo (CMethodType b) = CMethodType (force "type" $ poolIndex result b)
-    cpInfo (CInvokeDynamic t b) = CInvokeDynamic t (force "method" $ poolNTIndex result b)
+poolDirect2File directPool = snd $ execState comp (directPool, Bimap.empty)
+    where
+        -- State is the previous pool of constants to translate, the pool of pending constants, and the in-progress file
+        -- pool.
+        comp :: State (Pool Direct, Pool File) ()
+        comp = do
+            curr <- gets fst
+            -- Iterate over all the items in the pending pool, if all their dependencies are ready then add them to the
+            -- result pool. Otherwise, gather them into `next` and repeat
+            next <- forM (Bimap.toList curr) $ \(i, c) -> do
+                let addToPool c' = state (\(x, y) -> (Nothing, (x, Bimap.insert i c' y)))
+                    handleIndex Left{} = return $ Just (i, c) -- If we couldn't find an index, we'll try next iteration
+                    handleIndex (Right c') = addToPool c' -- If we found all the indices
+                pool <- gets snd
+                case c of
+                    CClass name -> handleIndex $ CClass <$> poolIndex pool name
+                    CField cls name -> handleIndex $ CField <$> poolClassIndex pool cls <*> poolNTIndex pool name
+                    CMethod cls name -> handleIndex $ CMethod <$> poolClassIndex pool cls <*> poolNTIndex pool name
+                    CIfaceMethod cls name -> handleIndex $ CIfaceMethod <$> poolIndex pool cls <*> poolNTIndex pool name
+                    CString s -> handleIndex $ CString <$> poolIndex pool s
+                    CInteger x -> addToPool $ CInteger x
+                    CFloat x -> addToPool $ CFloat x
+                    CLong x -> addToPool $ CLong (fromIntegral x)
+                    CDouble x -> addToPool $ CDouble x
+                    CNameType n t -> handleIndex $ CNameType <$> poolIndex pool n <*> poolIndex pool t
+                    CUTF8 s -> addToPool $ CUTF8 s
+                    CUnicode s -> addToPool $ CUnicode s
+                    CMethodHandle t cls b ->
+                        handleIndex $ CMethodHandle t <$> poolClassIndex pool cls <*> poolMethodIndex pool cls b
+                    CMethodType b -> handleIndex $ CMethodType <$> poolIndex pool b
+                    CInvokeDynamic t b -> handleIndex $ CInvokeDynamic t <$> poolNTIndex pool b
+            unless (null next) $ do
+                let next' = Bimap.fromList $ catMaybes next
+                -- Replace the previous/current pools with the ones we just calculated
+                when (curr == next') $ error "Encountered infinite loop in poolDirect2File"
+                modify (\(_,x) -> (next',x))
+                comp
 
 -- | Find index of given string in the list of constants
 poolIndex :: MonadError GeneratorException m => Pool File -> B.ByteString -> m Word16
