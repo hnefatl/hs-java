@@ -530,7 +530,8 @@ long _           = False
 
 putPool :: Pool File -> Put
 putPool pool = do
-    let list = Bimap.elems pool
+    -- Don't use elems, as we want the items sorted by the LHS values (the pool indices, which need to be ascending)
+    let list = map snd $ Bimap.toAscList pool
         d = length $ filter long list
     putWord16be $ fromIntegral (Bimap.size pool + d + 1)
     forM_ list putC
